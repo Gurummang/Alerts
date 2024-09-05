@@ -1,4 +1,4 @@
-package com.GASB.alerts.model.dto;
+package com.GASB.alerts.model.dto.request;
 
 import lombok.*;
 
@@ -13,7 +13,7 @@ public class SetEmailRequest {
 
     private String title;
     private List<String> emails;
-    private String message;
+    private String content;
     private boolean suspicious;
     private boolean sensitive;
     private boolean vt;
