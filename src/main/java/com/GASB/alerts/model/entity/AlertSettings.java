@@ -1,15 +1,14 @@
 package com.GASB.alerts.model.entity;
 
+import com.GASB.alerts.model.dto.request.SetEmailRequest;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.List;
 
 @Entity
 @Getter
+@Setter
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
@@ -37,5 +36,16 @@ public class AlertSettings {
 
     @OneToMany(mappedBy = "alertSettings", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AlertEmails> alertEmails;
+
+    public static AlertSettings toEntity(SetEmailRequest dto, AdminUsers adminUsers){
+        return AlertSettings.builder()
+                .adminUsers(adminUsers)
+                .title(dto.getTitle())
+                .content(dto.getContent())
+                .suspicious(dto.isSuspicious())
+                .dlp(dto.isSensitive())
+                .vt(dto.isVt())
+                .build();
+    }
 
 }

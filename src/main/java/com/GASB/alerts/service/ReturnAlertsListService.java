@@ -1,6 +1,9 @@
 package com.GASB.alerts.service;
 
 import com.GASB.alerts.model.dto.response.AlertsListResponse;
+import com.GASB.alerts.model.entity.AlertEmails;
+import com.GASB.alerts.repository.AlertEmailsRepo;
+import com.GASB.alerts.repository.AlertSettingsRepo;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

@@ -148,7 +148,7 @@ public class EmailController {
             }
 
             long adminId = adminOptional.get().getId();
-            String modify = setEmailAlertsService.updateAlerts(adminId, setEmailRequest);
+            String modify = setEmailAlertsService.updateAlerts(id, setEmailRequest);
             return ResponseDto.ofSuccess(modify);
         } catch (Exception e){
             return ResponseDto.ofFail(e.getMessage());
