@@ -18,7 +18,7 @@ public class AlertEmails {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "admin_id", referencedColumnName = "id", nullable = false)
+    @JoinColumn(name = "alert_id", referencedColumnName = "id", nullable = false)
     private AlertSettings alertSettings;
 
     @Column(columnDefinition = "TEXT")
