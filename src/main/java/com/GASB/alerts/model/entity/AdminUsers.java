@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.sql.Timestamp;
+import java.util.List;
 
 @Entity
 @Getter
@@ -37,4 +38,7 @@ public class AdminUsers {
     @Setter
     @Column(name = "last_login")
     private Timestamp lastLogin;
+
+    @OneToMany(mappedBy = "adminUsers", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AlertSettings> alertSettings;
 }
