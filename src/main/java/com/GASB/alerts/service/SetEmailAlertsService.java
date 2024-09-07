@@ -11,9 +11,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
-@Service
-public class SetEmailAlertsService {
+@Service public class SetEmailAlertsService {
 
     private final AdminUsersRepo adminUsersRepo;
     private final AlertSettingsRepo alertSettingsRepo;
@@ -32,7 +33,7 @@ public class SetEmailAlertsService {
 
         AlertSettings alertSettings = AlertSettings.toEntity(setEmailRequest, adminUsers);
 
-        List<AlertEmails> emails = setEmailRequest.getEmails().stream()
+        List<AlertEmails> emails = setEmailRequest.getEmail().stream()
                 .map(email -> AlertEmails.builder()
                         .email(email)
                         .alertSettings(alertSettings) // AlertEmails 엔티티에 AlertSettings 참조 설정
@@ -47,27 +48,33 @@ public class SetEmailAlertsService {
 
     @Transactional
     public String updateAlerts(long alertId, SetEmailRequest setEmailRequest) {
-        AlertSettings alertSettings = alertSettingsRepo.findById(alertId)
-                .orElseThrow(() -> new IllegalArgumentException("Alert setting not found : " + alertId));
+        Optional<AlertSettings> alertSettingsOptional = alertSettingsRepo.findById(alertId);
 
-        alertSettings.setTitle(setEmailRequest.getTitle());
-        alertSettings.setContent(setEmailRequest.getContent());
-        alertSettings.setSuspicious(setEmailRequest.isSuspicious());
-        alertSettings.setDlp(setEmailRequest.isSensitive());
-        alertSettings.setVt(setEmailRequest.isVt());
+        if(alertSettingsOptional.isPresent()){
+            AlertSettings alertSettings = alertSettingsOptional.get();
 
-        // email 삭제 후 다시 등록
-        alertEmailsRepo.deleteByAlertSettings(alertSettings);
-        List<AlertEmails> emails = setEmailRequest.getEmails().stream()
-                .map(email -> AlertEmails.builder()
-                        .email(email)
-                        .alertSettings(alertSettings)
-                        .build())
-                .toList();
-        alertSettings.setAlertEmails(emails);
+            alertSettings.setTitle(setEmailRequest.getTitle());
+            alertSettings.setContent(setEmailRequest.getContent());
+            alertSettings.setSuspicious(setEmailRequest.isSuspicious());
+            alertSettings.setDlp(setEmailRequest.isSensitive());
+            alertSettings.setVt(setEmailRequest.isVt());
 
-        alertSettingsRepo.save(alertSettings);
-        return "success to modify alerts.";
+            List<AlertEmails> newAlertEmails = setEmailRequest.getEmail().stream()
+                    .map(email -> AlertEmails.builder()
+                            .alertSettings(alertSettings)
+                            .email(email)
+                            .build())
+                    .collect(Collectors.toList());
+
+            // 기존 이메일 삭제 후 새 이메일 저장
+            alertEmailsRepo.deleteByAlertSettings(alertSettings);
+            alertEmailsRepo.saveAll(newAlertEmails);
+
+            alertSettingsRepo.save(alertSettings);
+            return "success to modify alerts.";
+        }else{
+            throw new RuntimeException("AlertEmails 엔티티를 찾을 수 없습니다.");
+        }
     }
 
     @Transactional

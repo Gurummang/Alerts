@@ -115,8 +115,7 @@ public class EmailController {
                 return ResponseDto.ofFail(ID_IS_NULL);
             }
 
-            long adminId = adminOptional.get().getId();
-            AlertsListResponse result = returnAlertsListService.getAlerts(adminId, id);
+            AlertsListResponse result = returnAlertsListService.getAlerts(id);
             return ResponseDto.ofSuccess(result);
         } catch (Exception e){
             return ResponseDto.ofFail(e.getMessage());
@@ -126,7 +125,7 @@ public class EmailController {
     // 알림 설정 수정
     @PutMapping("/email/{id}")
     @ValidateJWT
-    public ResponseDto<String> modifyEmailAlerts(HttpServletRequest servletRequest,@PathVariable Long id, @RequestBody SetEmailRequest setEmailRequest){
+    public ResponseDto<String> modifyEmailAlerts(HttpServletRequest servletRequest,@PathVariable long id, @RequestBody SetEmailRequest setEmailRequest){
         try{
             if (servletRequest.getAttribute(ERROR) != null) {
                 String errorMessage = (String) servletRequest.getAttribute(ERROR);
@@ -143,11 +142,6 @@ public class EmailController {
                 return ResponseDto.ofFail(EMAIL_NOT_FOUND + email);
             }
 
-            if(id == null){
-                return ResponseDto.ofFail(ID_IS_NULL);
-            }
-
-            long adminId = adminOptional.get().getId();
             String modify = setEmailAlertsService.updateAlerts(id, setEmailRequest);
             return ResponseDto.ofSuccess(modify);
         } catch (Exception e){

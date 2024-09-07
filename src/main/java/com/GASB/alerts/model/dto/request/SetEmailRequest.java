@@ -12,7 +12,7 @@ import java.util.List;
 public class SetEmailRequest {
 
     private String title;
-    private List<String> emails;
+    private List<String> email;
     private String content;
     private boolean suspicious;
     private boolean sensitive;
