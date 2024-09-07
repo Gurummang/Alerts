@@ -2,6 +2,8 @@ package com.GASB.alerts.model.dto.response;
 
 import lombok.*;
 
+import java.util.List;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -9,7 +11,7 @@ import lombok.*;
 @Builder
 public class AlertsListResponse {
     private long id;
-    private String email;
+    private List<String> email;
     private String title;
     private String content;
     private boolean suspicious;

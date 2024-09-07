@@ -1,6 +1,7 @@
 package com.GASB.alerts.controller;
 
 import com.GASB.alerts.annotation.JWT.ValidateJWT;
+import com.GASB.alerts.exception.InvalidJwtException;
 import com.GASB.alerts.model.dto.request.DeleteAlertsRequest;
 import com.GASB.alerts.model.dto.request.SetEmailRequest;
 import com.GASB.alerts.model.dto.response.AlertsListResponse;
@@ -19,11 +20,9 @@ import java.util.Optional;
 @RequestMapping("/api/v1/alerts")
 public class EmailController {
 
-    private static final String ERROR = "error";
     private static final String EMAIL = "email";
     private static final String EMAIL_NOT_FOUND = "Admin not found with email: ";
     private static final String INVALID_JWT_MSG = "Invalid JWT: email attribute is missing.";
-    private static final String ID_IS_NULL = "Id id null.";
     private final AdminUsersRepo adminUsersRepo;
 
     private final SetEmailAlertsService setEmailAlertsService;
@@ -35,24 +34,22 @@ public class EmailController {
         this.returnAlertsListService = returnAlertsListService;
     }
 
+    private Optional<AdminUsers> getAdminUser(HttpServletRequest servletRequest) {
+        String email = (String) servletRequest.getAttribute(EMAIL);
+        if (email == null) {
+            throw new InvalidJwtException(INVALID_JWT_MSG);
+        }
+        return adminUsersRepo.findByEmail(email);
+    }
+
     // 알림 설정 리스트 가져오기
     @GetMapping("/email")
     @ValidateJWT
     public ResponseDto<List<AlertsListResponse>> getAlertsList(HttpServletRequest servletRequest){
         try {
-            if (servletRequest.getAttribute(ERROR) != null) {
-                String errorMessage = (String) servletRequest.getAttribute(ERROR);
-                return ResponseDto.ofFail(errorMessage);
-            }
-            String email = (String) servletRequest.getAttribute(EMAIL);
-
-            if (email == null) {
-                return ResponseDto.ofFail(INVALID_JWT_MSG);
-            }
-
-            Optional<AdminUsers> adminOptional = adminUsersRepo.findByEmail(email);
+            Optional<AdminUsers> adminOptional = getAdminUser(servletRequest);
             if (adminOptional.isEmpty()) {
-                return ResponseDto.ofFail(EMAIL_NOT_FOUND + email);
+                return ResponseDto.ofFail(EMAIL_NOT_FOUND);
             }
 
             long adminId = adminOptional.get().getId();
@@ -68,19 +65,9 @@ public class EmailController {
     @ValidateJWT
     public ResponseDto<String> setEmailAlerts(HttpServletRequest servletRequest, @RequestBody SetEmailRequest setEmailRequest){
         try {
-            if (servletRequest.getAttribute(ERROR) != null) {
-                String errorMessage = (String) servletRequest.getAttribute(ERROR);
-                return ResponseDto.ofFail(errorMessage);
-            }
-            String email = (String) servletRequest.getAttribute(EMAIL);
-
-            if (email == null) {
-                return ResponseDto.ofFail(INVALID_JWT_MSG);
-            }
-
-            Optional<AdminUsers> adminOptional = adminUsersRepo.findByEmail(email);
+            Optional<AdminUsers> adminOptional = getAdminUser(servletRequest);
             if (adminOptional.isEmpty()) {
-                return ResponseDto.ofFail(EMAIL_NOT_FOUND + email);
+                return ResponseDto.ofFail(EMAIL_NOT_FOUND);
             }
 
             long adminId = adminOptional.get().getId();
@@ -96,23 +83,9 @@ public class EmailController {
     @ValidateJWT
     public ResponseDto<AlertsListResponse> getEmailAlerts(HttpServletRequest servletRequest, @PathVariable Long id){
         try {
-            if (servletRequest.getAttribute(ERROR) != null) {
-                String errorMessage = (String) servletRequest.getAttribute(ERROR);
-                return ResponseDto.ofFail(errorMessage);
-            }
-            String email = (String) servletRequest.getAttribute(EMAIL);
-
-            if (email == null) {
-                return ResponseDto.ofFail(INVALID_JWT_MSG);
-            }
-
-            Optional<AdminUsers> adminOptional = adminUsersRepo.findByEmail(email);
+            Optional<AdminUsers> adminOptional = getAdminUser(servletRequest);
             if (adminOptional.isEmpty()) {
-                return ResponseDto.ofFail(EMAIL_NOT_FOUND + email);
-            }
-
-            if(id == null){
-                return ResponseDto.ofFail(ID_IS_NULL);
+                return ResponseDto.ofFail(EMAIL_NOT_FOUND);
             }
 
             long adminId = adminOptional.get().getId();
@@ -126,29 +99,15 @@ public class EmailController {
     // 알림 설정 수정
     @PutMapping("/email/{id}")
     @ValidateJWT
-    public ResponseDto<String> modifyEmailAlerts(HttpServletRequest servletRequest,@PathVariable Long id, @RequestBody SetEmailRequest setEmailRequest){
+    public ResponseDto<String> modifyEmailAlerts(HttpServletRequest servletRequest,@PathVariable long id, @RequestBody SetEmailRequest setEmailRequest){
         try{
-            if (servletRequest.getAttribute(ERROR) != null) {
-                String errorMessage = (String) servletRequest.getAttribute(ERROR);
-                return ResponseDto.ofFail(errorMessage);
-            }
-            String email = (String) servletRequest.getAttribute(EMAIL);
-
-            if(email == null) {
-                return ResponseDto.ofFail(INVALID_JWT_MSG);
-            }
-
-            Optional<AdminUsers> adminOptional = adminUsersRepo.findByEmail(email);
+            Optional<AdminUsers> adminOptional = getAdminUser(servletRequest);
             if (adminOptional.isEmpty()) {
-                return ResponseDto.ofFail(EMAIL_NOT_FOUND + email);
-            }
-
-            if(id == null){
-                return ResponseDto.ofFail(ID_IS_NULL);
+                return ResponseDto.ofFail(EMAIL_NOT_FOUND);
             }
 
             long adminId = adminOptional.get().getId();
-            String modify = setEmailAlertsService.updateAlerts(id, setEmailRequest);
+            String modify = setEmailAlertsService.updateAlerts(adminId, id, setEmailRequest);
             return ResponseDto.ofSuccess(modify);
         } catch (Exception e){
             return ResponseDto.ofFail(e.getMessage());
@@ -160,24 +119,14 @@ public class EmailController {
     @ValidateJWT
     public ResponseDto<String> deleteEmailAlerts(HttpServletRequest servletRequest, @RequestBody DeleteAlertsRequest deleteAlertsRequest){
         try{
-            if (servletRequest.getAttribute(ERROR) != null) {
-                String errorMessage = (String) servletRequest.getAttribute(ERROR);
-                return ResponseDto.ofFail(errorMessage);
-            }
-            String email = (String) servletRequest.getAttribute(EMAIL);
-
-            if(email == null) {
-                return ResponseDto.ofFail(INVALID_JWT_MSG);
-            }
-
-            Optional<AdminUsers> adminOptional = adminUsersRepo.findByEmail(email);
+            Optional<AdminUsers> adminOptional = getAdminUser(servletRequest);
             if (adminOptional.isEmpty()) {
-                return ResponseDto.ofFail(EMAIL_NOT_FOUND + email);
+                return ResponseDto.ofFail(EMAIL_NOT_FOUND);
             }
 
             long adminId = adminOptional.get().getId();
-            String modify = setEmailAlertsService.deleteAlerts(adminId, deleteAlertsRequest.getAlertIds());
-            return ResponseDto.ofSuccess(modify);
+            String delete = setEmailAlertsService.deleteAlerts(adminId, deleteAlertsRequest.getAlertIds());
+            return ResponseDto.ofSuccess(delete);
         } catch (Exception e){
             return ResponseDto.ofFail(e.getMessage());
         }
