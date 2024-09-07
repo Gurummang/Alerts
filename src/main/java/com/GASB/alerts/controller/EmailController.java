@@ -8,6 +8,7 @@ import com.GASB.alerts.model.dto.response.AlertsListResponse;
 import com.GASB.alerts.model.dto.response.ResponseDto;
 import com.GASB.alerts.model.entity.AdminUsers;
 import com.GASB.alerts.repository.AdminUsersRepo;
+import com.GASB.alerts.service.AwsMailService;
 import com.GASB.alerts.service.ReturnAlertsListService;
 import com.GASB.alerts.service.SetEmailAlertsService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,11 +28,13 @@ public class EmailController {
 
     private final SetEmailAlertsService setEmailAlertsService;
     private final ReturnAlertsListService returnAlertsListService;
+    private final AwsMailService awsMailService;
 
-    public EmailController(AdminUsersRepo adminUsersRepo, SetEmailAlertsService setEmailAlertsService, ReturnAlertsListService returnAlertsListService){
+    public EmailController(AdminUsersRepo adminUsersRepo, SetEmailAlertsService setEmailAlertsService, ReturnAlertsListService returnAlertsListService, AwsMailService awsMailService){
         this.adminUsersRepo = adminUsersRepo;
         this.setEmailAlertsService = setEmailAlertsService;
         this.returnAlertsListService = returnAlertsListService;
+        this.awsMailService = awsMailService;
     }
 
     private Optional<AdminUsers> getAdminUser(HttpServletRequest servletRequest) {
@@ -130,6 +133,12 @@ public class EmailController {
         } catch (Exception e){
             return ResponseDto.ofFail(e.getMessage());
         }
+    }
+
+    @GetMapping
+    public ResponseDto<String> sendMail(){
+        awsMailService.send();
+        return ResponseDto.ofSuccess("good!");
     }
 
 }
