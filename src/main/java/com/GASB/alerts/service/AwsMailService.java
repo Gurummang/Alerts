@@ -4,6 +4,7 @@ import com.amazonaws.services.simpleemail.AmazonSimpleEmailService;
 import com.amazonaws.services.simpleemail.model.SendRawEmailRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -13,6 +14,7 @@ public class AwsMailService{
 
     private final AmazonSimpleEmailService amazonSimpleEmailService;
 
+    @RabbitListener(queues = "#{@rabbitMQProperties.suspiciousQueue}")
     public void send() {
         final String ATTACHMENT = null;
         try {
