@@ -11,8 +11,8 @@ import java.util.List;
 @Repository
 public interface AlertSettingsRepo extends JpaRepository<AlertSettings, Long> {
 
-    @Query("SELECT as FROM AlertSettings as WHERE as.adminUsers.id = :adminId")
-    List<AlertSettings> findAllByAdminId(@Param("adminId") long adminId);
+    @Query("SELECT as FROM AlertSettings as WHERE as.adminUsers.org.id = :orgId")
+    List<AlertSettings> findAllByOrgId(@Param("orgId") long orgId);
 
     @Query("SELECT as FROM AlertSettings as " +
         "JOIN as.adminUsers au " +

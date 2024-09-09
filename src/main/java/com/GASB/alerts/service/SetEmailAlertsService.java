@@ -48,7 +48,7 @@ import java.util.Optional;
     }
 
     @Transactional
-    public String updateAlerts(long adminId, long alertId, SetEmailRequest setEmailRequest) {
+    public String updateAlerts(long orgId, long alertId, SetEmailRequest setEmailRequest) {
         // AlertSettings 조회
         Optional<AlertSettings> alertSettingsOptional = alertSettingsRepo.findById(alertId);
 
@@ -58,7 +58,7 @@ import java.util.Optional;
 
         AlertSettings alertSettings = alertSettingsOptional.get();
 
-        if (alertSettings.getAdminUsers().getId() != adminId) {
+        if (alertSettings.getAdminUsers().getOrg().getId() != orgId) {
             throw new UnauthorizedAccessException("Admin is not authorized to update alertSettings with id: " + alertId);
         }
 
@@ -86,7 +86,7 @@ import java.util.Optional;
 
 
     @Transactional
-    public String deleteAlerts(long adminId, List<Long> alertIds) {
+    public String deleteAlerts(long orgId, List<Long> alertIds) {
         List<AlertSettings> alertSettingsList = alertSettingsRepo.findAllById(alertIds);
 
         // 존재하지 않는 ID를 찾기 위한 로직
@@ -103,7 +103,7 @@ import java.util.Optional;
         }
 
         for (AlertSettings alertSettings : alertSettingsList) {
-            if (alertSettings.getAdminUsers().getId().equals(adminId)) {
+            if (alertSettings.getAdminUsers().getOrg().getId() == orgId) {
                 alertSettingsRepo.delete(alertSettings);
             } else {
                 throw new UnauthorizedAccessException("Admin is not authorized to delete alertSettings with id: " + alertSettings.getId());
