@@ -46,7 +46,7 @@ public class EmailController {
     }
 
     // 알림 설정 리스트 가져오기
-    @GetMapping("/email")
+    @GetMapping
     @ValidateJWT
     public ResponseDto<List<AlertsListResponse>> getAlertsList(HttpServletRequest servletRequest){
         try {
@@ -64,7 +64,7 @@ public class EmailController {
     }
 
     // 알림 설정 저장
-    @PostMapping("/email")
+    @PostMapping
     @ValidateJWT
     public ResponseDto<String> setEmailAlerts(HttpServletRequest servletRequest, @RequestBody SetEmailRequest setEmailRequest){
         try {
@@ -82,7 +82,7 @@ public class EmailController {
     }
 
     // 알림 설정 하나만 조회
-    @GetMapping("/email/{id}")
+    @GetMapping("/edit/{id}")
     @ValidateJWT
     public ResponseDto<AlertsListResponse> getEmailAlerts(HttpServletRequest servletRequest, @PathVariable Long id){
         try {
@@ -100,7 +100,7 @@ public class EmailController {
     }
 
     // 알림 설정 수정
-    @PutMapping("/email/{id}")
+    @PutMapping("/edit/{id}")
     @ValidateJWT
     public ResponseDto<String> modifyEmailAlerts(HttpServletRequest servletRequest,@PathVariable long id, @RequestBody SetEmailRequest setEmailRequest){
         try{
@@ -118,7 +118,7 @@ public class EmailController {
     }
 
     // 알림 설정 삭제
-    @DeleteMapping("/email")
+    @PostMapping("/delete")
     @ValidateJWT
     public ResponseDto<String> deleteEmailAlerts(HttpServletRequest servletRequest, @RequestBody DeleteAlertsRequest deleteAlertsRequest){
         try{
@@ -135,10 +135,10 @@ public class EmailController {
         }
     }
 
-    @GetMapping
-    public ResponseDto<String> sendMail(){
-        awsMailService.send();
-        return ResponseDto.ofSuccess("good!");
-    }
+//    @GetMapping
+//    public ResponseDto<String> sendMail(){
+//        awsMailService.send();
+//        return ResponseDto.ofSuccess("good!");
+//    }
 
 }
