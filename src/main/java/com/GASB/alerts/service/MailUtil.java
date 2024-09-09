@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Properties;
 
 
@@ -30,53 +31,53 @@ public class MailUtil {
 
     private final AmazonSimpleEmailService amazonSimpleEmailService;
 
-    public static SendRawEmailRequest getSendRawEmailRequest(String title, String content, String receiver, String fileRoot) throws MessagingException, IOException {
+    public static SendRawEmailRequest getSendRawEmailRequest(String title, String content, List<String> receivers) throws MessagingException, IOException {
 
-        // title : 메일 제목
-        // content : 안에 내용
-        // receiver : 받는 사람
-        // fileRoot : 파일 경로
+        // 유효성 검사
+        if (title == null || title.isEmpty()) {
+            throw new IllegalArgumentException("메일 제목은 필수입니다.");
+        }
+        if (content == null || content.isEmpty()) {
+            throw new IllegalArgumentException("메일 내용은 필수입니다.");
+        }
+        if (receivers == null || receivers.isEmpty()) {
+            throw new IllegalArgumentException("수신자 목록은 비어 있을 수 없습니다.");
+        }
 
+        // 세션 생성
         Session session = Session.getDefaultInstance(new Properties());
         MimeMessage message = new MimeMessage(session);
 
-        // Define mail title
+        // 메일 제목 설정
         message.setSubject(title);
 
-        // Define mail Sender
-        message.setFrom("gasb@grummang.com");
+        // 발신자 설정
+        message.setFrom(new InternetAddress("gasb@grummang.com"));
 
-        // Define mail Receiver
-        message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(receiver));
+        // 수신자 설정
+        String recipients = String.join(",", receivers);
+        message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipients));
 
-        // Create a multipart/mixed parent container.
+        // 메일 본문 생성
         MimeMultipart msg = new MimeMultipart("mixed");
 
-        // Define the text part.
+        // 텍스트 파트 생성
         MimeBodyPart textPart = new MimeBodyPart();
         textPart.setContent(content, "text/plain; charset=UTF-8");
-
-        // Add the text part to the parent container.
         msg.addBodyPart(textPart);
 
-        // Define the attachment
-        MimeBodyPart att = new MimeBodyPart();
-        if (fileRoot != null){
-            DataSource fds = new FileDataSource(fileRoot);
-            att.setDataHandler(new DataHandler(fds));
-            att.setFileName(fds.getName());
-
-            // Add the attachment to the message.
-            msg.addBodyPart(att);
-        }
-
-        // Add the parent container to the message.
+        // 메일 콘텐츠 설정
         message.setContent(msg);
 
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        message.writeTo(outputStream);
-        RawMessage rawMessage = new RawMessage(ByteBuffer.wrap(outputStream.toByteArray()));
-        return new SendRawEmailRequest(rawMessage);
+        // 메일을 RawMessage로 변환
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            message.writeTo(outputStream);
+            RawMessage rawMessage = new RawMessage(ByteBuffer.wrap(outputStream.toByteArray()));
+            return new SendRawEmailRequest(rawMessage);
+        } catch (MessagingException | IOException e) {
+            log.info("이메일 작성 중 오류 발생: " + e.getMessage());
+            throw e;
+        }
     }
 }
 

@@ -13,4 +13,9 @@ public interface AlertSettingsRepo extends JpaRepository<AlertSettings, Long> {
 
     @Query("SELECT as FROM AlertSettings as WHERE as.adminUsers.id = :adminId")
     List<AlertSettings> findAllByAdminId(@Param("adminId") long adminId);
+
+    @Query("SELECT as FROM AlertSettings as " +
+        "JOIN as.adminUsers au " +
+        "WHERE au.org.id = :orgId AND as.vt = true")
+    List<AlertSettings> findAllByOrgIdAndVtTrue(@Param("orgId") long orgId);
 }
