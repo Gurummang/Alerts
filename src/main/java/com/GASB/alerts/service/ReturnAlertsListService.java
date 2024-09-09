@@ -23,7 +23,7 @@ public class ReturnAlertsListService {
         this.alertEmailsRepo = alertEmailsRepo;
     }
 
-    public AlertsListResponse getAlerts(long adminId, long alertsId) {
+    public AlertsListResponse getAlerts(long orgId, long alertsId) {
 
         Optional<AlertSettings> alertSettingsOptional = alertSettingsRepo.findById(alertsId);
 
@@ -33,7 +33,7 @@ public class ReturnAlertsListService {
 
         AlertSettings alertSettings = alertSettingsOptional.get();
 
-        if (alertSettings.getAdminUsers().getId() != adminId) {
+        if (alertSettings.getAdminUsers().getOrg().getId() != orgId) {
             throw new UnauthorizedAccessException("Admin is not authorized to update alertSettings with id: " + alertsId);
         }
 
@@ -53,8 +53,8 @@ public class ReturnAlertsListService {
         return alertEmailsRepo.findEmailByAlertId(alertId);
     }
 
-    public List<AlertsListResponse> getAlertsList(long adminId){
-        List<AlertSettings> settings = alertSettingsRepo.findAllByAdminId(adminId);
+    public List<AlertsListResponse> getAlertsList(long orgId){
+        List<AlertSettings> settings = alertSettingsRepo.findAllByOrgId(orgId);
 
         return settings.stream().map(setting -> {
             // AlertEmails 엔티티 리스트에서 이메일 주소 추출
