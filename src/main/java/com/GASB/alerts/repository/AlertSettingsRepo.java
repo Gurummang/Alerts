@@ -18,4 +18,14 @@ public interface AlertSettingsRepo extends JpaRepository<AlertSettings, Long> {
         "JOIN as.adminUsers au " +
         "WHERE au.org.id = :orgId AND as.vt = true")
     List<AlertSettings> findAllByOrgIdAndVtTrue(@Param("orgId") long orgId);
+
+    @Query("SELECT as FROM AlertSettings as " +
+        "JOIN as.adminUsers au " +
+        "WHERE au.org.id = :orgId AND as.suspicious = true")
+    List<AlertSettings> findAllByOrgIdAndSuspiciousTrue(@Param("orgId") long orgId);
+
+    @Query("SELECT as FROM AlertSettings as " +
+        "JOIN as.adminUsers au " +
+        "WHERE au.org.id = :orgId AND as.dlp = true")
+    List<AlertSettings> findAllByOrgIdAndDlpTrue(@Param("orgId") long orgId);
 }
