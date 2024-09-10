@@ -6,9 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import com.amazonaws.services.simpleemail.model.SendRawEmailRequest;
 import com.amazonaws.services.simpleemail.model.RawMessage;
 import com.amazonaws.services.simpleemail.AmazonSimpleEmailService;
-import jakarta.activation.DataHandler;
-import jakarta.activation.DataSource;
-import jakarta.activation.FileDataSource;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
 import jakarta.mail.internet.InternetAddress;
@@ -32,7 +29,7 @@ public class MailUtil {
     private final AmazonSimpleEmailService amazonSimpleEmailService;
 
     public static SendRawEmailRequest getSendRawEmailRequest(String title, String content, List<String> receivers) throws MessagingException, IOException {
-
+        System.out.println("메일 보내는 중~~~~");
         // 유효성 검사
         if (title == null || title.isEmpty()) {
             throw new IllegalArgumentException("메일 제목은 필수입니다.");

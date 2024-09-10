@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface StoredFileRepo extends JpaRepository<StoredFile, Long> {
+
+    boolean existsBySaltedHash(String saltedHash);
 }
