@@ -1,14 +1,13 @@
 package com.GASB.alerts.service;
 
+import com.GASB.alerts.config.RabbitMQProperties;
 import com.GASB.alerts.exception.AlertSettingsNotFoundException;
-import com.GASB.alerts.model.entity.AlertSettings;
-import com.GASB.alerts.model.entity.FileUpload;
-import com.GASB.alerts.model.entity.StoredFile;
-import com.GASB.alerts.model.entity.VtReport;
+import com.GASB.alerts.model.entity.*;
 import com.GASB.alerts.repository.AlertSettingsRepo;
 import com.GASB.alerts.repository.FileUploadRepo;
 import com.GASB.alerts.repository.StoredFileRepo;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,23 +20,48 @@ public class EventListener {
     private final FileUploadRepo fileUploadRepo;
     private final StoredFileRepo storedFileRepo;
     private final AwsMailService awsMailService;
+    private final RabbitTemplate rabbitTemplate;
+    private final RabbitMQProperties rabbitMQProperties;
 
-    public EventListener(AlertSettingsRepo alertSettingsRepo, FileUploadRepo fileUploadRepo, StoredFileRepo storedFileRepo, AwsMailService awsMailService){
+    public EventListener(AlertSettingsRepo alertSettingsRepo, FileUploadRepo fileUploadRepo, StoredFileRepo storedFileRepo, AwsMailService awsMailService, RabbitTemplate rabbitTemplate, RabbitMQProperties rabbitMQProperties){
         this.alertSettingsRepo = alertSettingsRepo;
         this.fileUploadRepo = fileUploadRepo;
         this.storedFileRepo = storedFileRepo;
         this.awsMailService = awsMailService;
+        this.rabbitTemplate = rabbitTemplate;
+        this.rabbitMQProperties = rabbitMQProperties;
+    }
+
+    // params: 업로드 id
+    // storedFile이 이미 있는 경우
+    @RabbitListener(queues = "#{@rabbitMQProperties.uploadQueue}")
+    public void uploadEvent(String payload){
+        long uploadId = Long.parseLong(payload.trim());
+        System.out.println("uploadId: "+ uploadId);
+
+        StoredFile storedFile = getStoredFile(uploadId);
+
+        if(storedFile.getFileStatus().getVtStatus() == 1) {
+            rabbitTemplate.convertAndSend(rabbitMQProperties.getVtRoutingKey(), uploadId);
+        }
+
+        if(storedFile.getFileStatus().getDlpStatus() == 1){
+            rabbitTemplate.convertAndSend(rabbitMQProperties.getDlpRoutingKey(), uploadId);
+        }
+
+        if(storedFile.getFileStatus().getGscanStatus() == 1){
+            rabbitTemplate.convertAndSend(rabbitMQProperties.getSuspiciousRoutingKey(), uploadId);
+        }
     }
 
     @RabbitListener(queues = "#{@rabbitMQProperties.vtQueue}")
-    public void vtEvent(String payload) {
-        long uploadId = Long.parseLong(payload.trim());
+    public void vtEvent(long uploadId) {
         System.out.println("uploadId: "+ uploadId);
         Long orgId = getOrgIdByUploadId(uploadId);
         List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndVtTrue(orgId);
 
         // storedFile에 이미 존재하면서 vtReport에서 악성으로 판별난 경우
-        if (isExistedStoredFile(uploadId) && isMalware(uploadId)) {
+        if (isMalware(uploadId)) {
             awsMailService.sendMail(alertSettings);
         } else {
             System.out.println("전혀 위험하지 않음");
@@ -45,23 +69,31 @@ public class EventListener {
     }
 
     @RabbitListener(queues = "#{@rabbitMQProperties.suspiciousQueue}")
-    public void suspiciousEvent(String payload){
-        long uploadId = Long.parseLong(payload.trim());
+    public void suspiciousEvent(long uploadId){
         System.out.println("uploadId: "+ uploadId);
         Long orgId = getOrgIdByUploadId(uploadId);
         List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndSuspiciousTrue(orgId);
 
-        awsMailService.sendMail(alertSettings);
+        // storedFile에 이미 존재하면서 gscan에서 의심으로 판별난 경우
+        if(isSuspicious(uploadId)) {
+            awsMailService.sendMail(alertSettings);
+        } else {
+            System.out.println("의심스럽지 않음..");
+        }
     }
 
     @RabbitListener(queues = "#{@rabbitMQProperties.dlpQueue}")
-    public void dlpEvent(String payload){
-        long uploadId = Long.parseLong(payload.trim());
+    public void dlpEvent(long uploadId){
         System.out.println("uploadId: "+ uploadId);
         Long orgId = getOrgIdByUploadId(uploadId);
         List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndDlpTrue(orgId);
 
-        awsMailService.sendMail(alertSettings);
+        // storedFile에 이미 존재하면서 dlpReport에서 민감으로 판별난 경우
+        if(isSensitive(uploadId)) {
+            awsMailService.sendMail(alertSettings);
+        } else {
+            System.out.println("dlp 감지 안됨...");
+        }
     }
 
     private Long getOrgIdByUploadId(long uploadId) {
@@ -69,15 +101,27 @@ public class EventListener {
                 .orElseThrow(() -> new AlertSettingsNotFoundException("Organization ID not found for uploadId: " + uploadId));
     }
 
-    private boolean isExistedStoredFile(long uploadId) {
+    private StoredFile getStoredFile(long uploadId){
         FileUpload fileUpload = getFileUploadById(uploadId);
-        return storedFileRepo.existsBySaltedHash(fileUpload.getHash());
+        return storedFileRepo.findBySaltedHash(fileUpload.getHash());
     }
 
     private boolean isMalware(long uploadId) {
         StoredFile storedFile = getStoredFileByUploadId(uploadId);
         VtReport vtReport = storedFile.getVtReport();
         return vtReport != null && !"none".equals(vtReport.getThreatLabel());
+    }
+
+    private boolean isSuspicious(long uploadId){
+        Optional<FileUpload> fileUpload = fileUploadRepo.findById(uploadId);
+        StoredFile storedFile = fileUpload.get().getStoredFile();
+        return fileUpload.get().getTypeScan().getCorrect().equals(false) || storedFile.getScanTable().isDetected();
+    }
+
+    private boolean isSensitive(long uploadId){
+        Optional<FileUpload> fileUpload = fileUploadRepo.findById(uploadId);
+        DlpReport dlpReport = fileUpload.get().getStoredFile().getDlpReport();
+        return dlpReport.getDlp().equals(true);
     }
 
     private FileUpload getFileUploadById(long uploadId) {

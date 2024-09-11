@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 public class RabbitMQProperties {
 
     private String exchange;
+    private String uploadQueue;
+    private String uploadRoutingKey;
     private String suspiciousQueue;
     private String suspiciousRoutingKey;
     private String dlpQueue;
