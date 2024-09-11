@@ -24,6 +24,11 @@ public class RabbitMQConfig {
 
     // queue settings
     @Bean
+    public Queue uploadQueue(){
+        return new Queue(properties.getUploadQueue(), true, false, false);
+    }
+
+    @Bean
     public Queue eventSuspiciousQueue(){
         return new Queue(properties.getSuspiciousQueue(), true, false, false);
     }
@@ -39,6 +44,11 @@ public class RabbitMQConfig {
     }
 
     // binding settings
+    @Bean
+    public Binding uploadBinding(Queue uploadQueue, DirectExchange exchange){
+        return BindingBuilder.bind(uploadQueue).to(exchange).with(properties.getUploadRoutingKey());
+    }
+
     @Bean
     public Binding eventSuspiciousBinding(Queue eventSuspiciousQueue, DirectExchange exchange){
         return BindingBuilder.bind(eventSuspiciousQueue).to(exchange).with(properties.getSuspiciousRoutingKey());
