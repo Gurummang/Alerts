@@ -42,7 +42,7 @@ public class EventListener {
     @RabbitListener(queues = "#{@rabbitMQProperties.uploadQueue}")
     public void uploadEvent(String payload) {
         long uploadId = Long.parseLong(payload.trim());
-        log.info("uploadId: " + uploadId);
+        log.info("uploadId: {}", uploadId);
 
         StoredFile storedFile = getStoredFile(uploadId);
 
@@ -64,7 +64,7 @@ public class EventListener {
             return;
         }
 
-        // 모든 알림 설정을 가져옵니다
+        // org의 모든 알림 설정
         List<AlertSettings> allAlertSettings = alertSettingsRepo.findAllByOrgId(orgId);
         Set<Long> sentAlertSettings = new HashSet<>();
 
@@ -119,17 +119,19 @@ public class EventListener {
 
     @RabbitListener(queues = "#{@rabbitMQProperties.vtQueue}")
     public void vtEvent(long uploadId) {
-        System.out.println("uploadId: " + uploadId);
+        log.info("vtEvent uploadId: {}", uploadId);
         Long orgId = getOrgIdByUploadId(uploadId);
         List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndVtTrue(orgId);
 
-        // VT 상태와 일치하는 알림 설정에 따라 메일 전송
-        sendMailIfConditionsMatch(alertSettings, uploadId, "vt");
+        if(isMalware(uploadId)) {
+            // VT 상태와 일치하는 알림 설정에 따라 메일 전송
+            sendMailIfConditionsMatch(alertSettings, uploadId, "vt");
+        }
     }
 
     @RabbitListener(queues = "#{@rabbitMQProperties.suspiciousQueue}")
     public void suspiciousEvent(long uploadId) {
-        System.out.println("uploadId: " + uploadId);
+        log.info("suspiciousEvent uploadId: {}" , uploadId);
         Long orgId = getOrgIdByUploadId(uploadId);
         List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndSuspiciousTrue(orgId);
 
@@ -138,13 +140,20 @@ public class EventListener {
     }
 
     @RabbitListener(queues = "#{@rabbitMQProperties.dlpQueue}")
-    public void dlpEvent(long uploadId) {
-        System.out.println("uploadId: " + uploadId);
-        Long orgId = getOrgIdByUploadId(uploadId);
-        List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndDlpTrue(orgId);
+    public void dlpEvent(long[] ids) {
+        if (ids.length == 2) {
+            long policyId = ids[0];
+            long uploadId = ids[1];
+            log.info("정책 아이디, 업로드 아이디: {}, {}", policyId, uploadId);
 
-        // DLP 상태와 일치하는 알림 설정에 따라 메일 전송
-        sendMailIfConditionsMatch(alertSettings, uploadId, "dlp");
+            Long orgId = getOrgIdByUploadId(uploadId);
+            List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndDlpTrue(orgId);
+
+            // DLP 상태와 일치하는 알림 설정에 따라 메일 전송
+            sendMailIfConditionsMatch(alertSettings, uploadId, "dlp");
+        } else {
+            log.info("Invalid message received.");
+        }
     }
 
     private void sendMailIfConditionsMatch(List<AlertSettings> alertSettings, long uploadId, String alertType) {
@@ -152,13 +161,13 @@ public class EventListener {
                 .filter(setting -> {
                     switch (alertType) {
                         case "vt":
-                            System.out.println("vt");
+                            log.info("vt");
                             return setting.isVt();  // VT 상태와 일치하는지 확인
                         case "suspicious":
-                            System.out.println("suspicious");
+                            log.info("suspicious");
                             return setting.isSuspicious();  // Suspicious 상태와 일치하는지 확인
                         case "dlp":
-                            System.out.println("dlp");
+                            log.info("dlp");
                             return setting.isDlp();  // DLP 상태와 일치하는지 확인
                         default:
                             return false;
@@ -170,7 +179,7 @@ public class EventListener {
         if (!matchedSettings.isEmpty()) {
             awsMailService.sendMail(matchedSettings);
         } else {
-            log.info("No matching alert settings found for alert type: " + alertType + " and upload ID: " + uploadId);
+            log.info("No matching alert settings found for alert type: {} and upload ID: {}", alertType, uploadId);
         }
     }
 
