@@ -6,14 +6,19 @@ import com.GASB.alerts.model.entity.*;
 import com.GASB.alerts.repository.AlertSettingsRepo;
 import com.GASB.alerts.repository.FileUploadRepo;
 import com.GASB.alerts.repository.StoredFileRepo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class EventListener {
 
     private final AlertSettingsRepo alertSettingsRepo;
@@ -35,66 +40,140 @@ public class EventListener {
     // params: 업로드 id
     // storedFile이 이미 있는 경우
     @RabbitListener(queues = "#{@rabbitMQProperties.uploadQueue}")
-    public void uploadEvent(String payload){
+    public void uploadEvent(String payload) {
         long uploadId = Long.parseLong(payload.trim());
-        System.out.println("uploadId: "+ uploadId);
+        log.info("uploadId: " + uploadId);
 
         StoredFile storedFile = getStoredFile(uploadId);
 
-        if(storedFile.getFileStatus().getVtStatus() == 1) {
-            rabbitTemplate.convertAndSend(rabbitMQProperties.getVtRoutingKey(), uploadId);
-        }
+        if (storedFile.getFileStatus().getVtStatus() == 1 ||
+                storedFile.getFileStatus().getDlpStatus() == 1 ||
+                storedFile.getFileStatus().getGscanStatus() == 1) {
 
-        if(storedFile.getFileStatus().getDlpStatus() == 1){
-            rabbitTemplate.convertAndSend(rabbitMQProperties.getDlpRoutingKey(), uploadId);
-        }
-
-        if(storedFile.getFileStatus().getGscanStatus() == 1){
-            rabbitTemplate.convertAndSend(rabbitMQProperties.getSuspiciousRoutingKey(), uploadId);
+            // 조건에 맞는 알림 설정을 확인하고 메일 전송
+            sendMailBasedOnConditions(uploadId);
         }
     }
+
+    private void sendMailBasedOnConditions(long uploadId) {
+        Set<String> notificationTypes = determineNotificationTypes(uploadId);
+        Long orgId = getOrgIdByUploadId(uploadId);
+
+        if (notificationTypes.isEmpty()) {
+            log.info("No matching conditions for uploadId: " + uploadId);
+            return;
+        }
+
+        // 모든 알림 설정을 가져옵니다
+        List<AlertSettings> allAlertSettings = alertSettingsRepo.findAllByOrgId(orgId);
+        Set<Long> sentAlertSettings = new HashSet<>();
+
+        // 조건별로 메일 전송
+        for (String type : notificationTypes) {
+            List<AlertSettings> matchedSettings = allAlertSettings.stream()
+                    .filter(setting -> {
+                        switch (type) {
+                            case "vt":
+                                return setting.isVt();
+                            case "dlp":
+                                return setting.isDlp();
+                            case "suspicious":
+                                return setting.isSuspicious();
+                            default:
+                                return false;
+                        }
+                    })
+                    .toList();
+
+            // 이미 보낸 알림인지 체크하고 전송할 알림 필터링
+            List<AlertSettings> filteredSettings = matchedSettings.stream()
+                    .filter(setting -> !sentAlertSettings.contains(setting.getId()))
+                    .toList();
+
+            if (!filteredSettings.isEmpty()) {
+                awsMailService.sendMail(filteredSettings);
+
+                filteredSettings.forEach(setting -> sentAlertSettings.add(setting.getId()));
+            }
+        }
+
+        sentAlertSettings.clear();
+    }
+
+    private Set<String> determineNotificationTypes(long uploadId) {
+        Set<String> notificationTypes = new HashSet<>();
+
+        if (isMalware(uploadId)) {
+            notificationTypes.add("vt");
+        }
+        if (isSensitive(uploadId)) {
+            notificationTypes.add("dlp");
+        }
+        if (isSuspicious(uploadId)) {
+            notificationTypes.add("suspicious");
+        }
+
+        return notificationTypes;
+    }
+
 
     @RabbitListener(queues = "#{@rabbitMQProperties.vtQueue}")
     public void vtEvent(long uploadId) {
-        System.out.println("uploadId: "+ uploadId);
+        System.out.println("uploadId: " + uploadId);
         Long orgId = getOrgIdByUploadId(uploadId);
         List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndVtTrue(orgId);
 
-        // storedFile에 이미 존재하면서 vtReport에서 악성으로 판별난 경우
-        if (isMalware(uploadId)) {
-            awsMailService.sendMail(alertSettings);
-        } else {
-            System.out.println("전혀 위험하지 않음");
-        }
+        // VT 상태와 일치하는 알림 설정에 따라 메일 전송
+        sendMailIfConditionsMatch(alertSettings, uploadId, "vt");
     }
 
     @RabbitListener(queues = "#{@rabbitMQProperties.suspiciousQueue}")
-    public void suspiciousEvent(long uploadId){
-        System.out.println("uploadId: "+ uploadId);
+    public void suspiciousEvent(long uploadId) {
+        System.out.println("uploadId: " + uploadId);
         Long orgId = getOrgIdByUploadId(uploadId);
         List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndSuspiciousTrue(orgId);
 
-        // storedFile에 이미 존재하면서 gscan에서 의심으로 판별난 경우
-        if(isSuspicious(uploadId)) {
-            awsMailService.sendMail(alertSettings);
-        } else {
-            System.out.println("의심스럽지 않음..");
-        }
+        // Suspicious 상태와 일치하는 알림 설정에 따라 메일 전송
+        sendMailIfConditionsMatch(alertSettings, uploadId, "suspicious");
     }
 
     @RabbitListener(queues = "#{@rabbitMQProperties.dlpQueue}")
-    public void dlpEvent(long uploadId){
-        System.out.println("uploadId: "+ uploadId);
+    public void dlpEvent(long uploadId) {
+        System.out.println("uploadId: " + uploadId);
         Long orgId = getOrgIdByUploadId(uploadId);
         List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndDlpTrue(orgId);
 
-        // storedFile에 이미 존재하면서 dlpReport에서 민감으로 판별난 경우
-        if(isSensitive(uploadId)) {
-            awsMailService.sendMail(alertSettings);
+        // DLP 상태와 일치하는 알림 설정에 따라 메일 전송
+        sendMailIfConditionsMatch(alertSettings, uploadId, "dlp");
+    }
+
+    private void sendMailIfConditionsMatch(List<AlertSettings> alertSettings, long uploadId, String alertType) {
+        List<AlertSettings> matchedSettings = alertSettings.stream()
+                .filter(setting -> {
+                    switch (alertType) {
+                        case "vt":
+                            System.out.println("vt");
+                            return setting.isVt();  // VT 상태와 일치하는지 확인
+                        case "suspicious":
+                            System.out.println("suspicious");
+                            return setting.isSuspicious();  // Suspicious 상태와 일치하는지 확인
+                        case "dlp":
+                            System.out.println("dlp");
+                            return setting.isDlp();  // DLP 상태와 일치하는지 확인
+                        default:
+                            return false;
+                    }
+                })
+                .toList();
+
+        // 조건을 만족하는 알림 설정이 있는 경우에만 메일 전송
+        if (!matchedSettings.isEmpty()) {
+            awsMailService.sendMail(matchedSettings);
         } else {
-            System.out.println("dlp 감지 안됨...");
+            log.info("No matching alert settings found for alert type: " + alertType + " and upload ID: " + uploadId);
         }
     }
+
 
     private Long getOrgIdByUploadId(long uploadId) {
         return Optional.ofNullable(fileUploadRepo.findOrgIdByUploadId(uploadId))
@@ -114,14 +193,22 @@ public class EventListener {
 
     private boolean isSuspicious(long uploadId){
         Optional<FileUpload> fileUpload = fileUploadRepo.findById(uploadId);
-        StoredFile storedFile = fileUpload.get().getStoredFile();
-        return fileUpload.get().getTypeScan().getCorrect().equals(false) || storedFile.getScanTable().isDetected();
+
+        if(fileUpload.isPresent()){
+            FileUpload upload = fileUpload.get();
+            StoredFile storedFile = upload.getStoredFile();
+            return upload.getTypeScan().getCorrect().equals(false) || storedFile.getScanTable().isDetected();
+        }
+        return false;
     }
 
-    private boolean isSensitive(long uploadId){
-        Optional<FileUpload> fileUpload = fileUploadRepo.findById(uploadId);
-        DlpReport dlpReport = fileUpload.get().getStoredFile().getDlpReport();
-        return dlpReport.getDlp().equals(true);
+    private boolean isSensitive(long uploadId) {
+        return fileUploadRepo.findById(uploadId)
+                .map(FileUpload::getStoredFile)
+                .filter(storedFile -> storedFile.getDlpReport() != null) // DlpReport가 null이 아닌지 확인
+                .map(storedFile -> storedFile.getDlpReport().stream()
+                        .anyMatch(dlp -> dlp.getInfoCnt() >= 1)) // infoCnt가 1 이상인 DlpReport가 있는지 확인
+                .orElse(false); // 기본값은 false
     }
 
     private FileUpload getFileUploadById(long uploadId) {
