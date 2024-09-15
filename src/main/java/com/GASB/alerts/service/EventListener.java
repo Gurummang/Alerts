@@ -130,13 +130,18 @@ public class EventListener {
     }
 
     @RabbitListener(queues = "#{@rabbitMQProperties.suspiciousQueue}")
-    public void suspiciousEvent(long uploadId) {
-        log.info("suspiciousEvent uploadId: {}" , uploadId);
-        Long orgId = getOrgIdByUploadId(uploadId);
-        List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndSuspiciousTrue(orgId);
+    public void suspiciousEvent(long storedFileId) {
+        log.info("suspiciousEvent storedFileId: {}" , storedFileId);
+        Optional<StoredFile> storedFile = storedFileRepo.findById(storedFileId);
+        List<FileUpload> uploads = fileUploadRepo.findListByHash(storedFile.get().getSaltedHash());
 
-        // Suspicious 상태와 일치하는 알림 설정에 따라 메일 전송
-        sendMailIfConditionsMatch(alertSettings, uploadId, "suspicious");
+        for(FileUpload f : uploads) {
+            Long orgId = getOrgIdByUploadId(f.getId());
+            List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndSuspiciousTrue(orgId);
+
+            // Suspicious 상태와 일치하는 알림 설정에 따라 메일 전송
+            sendMailIfConditionsMatch(alertSettings, f.getId(), "suspicious");
+        }
     }
 
     @RabbitListener(queues = "#{@rabbitMQProperties.dlpQueue}")
