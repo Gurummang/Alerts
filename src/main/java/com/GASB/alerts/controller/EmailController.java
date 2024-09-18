@@ -9,6 +9,7 @@ import com.GASB.alerts.model.dto.response.ResponseDto;
 import com.GASB.alerts.model.entity.AdminUsers;
 import com.GASB.alerts.repository.AdminUsersRepo;
 import com.GASB.alerts.service.AwsMailService;
+import com.GASB.alerts.service.EmailVerificationService;
 import com.GASB.alerts.service.ReturnAlertsListService;
 import com.GASB.alerts.service.SetEmailAlertsService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,12 +29,14 @@ public class EmailController {
 
     private final SetEmailAlertsService setEmailAlertsService;
     private final ReturnAlertsListService returnAlertsListService;
+    private final EmailVerificationService emailVerificationService;
     private final AwsMailService awsMailService;
 
-    public EmailController(AdminUsersRepo adminUsersRepo, SetEmailAlertsService setEmailAlertsService, ReturnAlertsListService returnAlertsListService, AwsMailService awsMailService){
+    public EmailController(AdminUsersRepo adminUsersRepo, SetEmailAlertsService setEmailAlertsService, ReturnAlertsListService returnAlertsListService, EmailVerificationService emailVerificationService, AwsMailService awsMailService){
         this.adminUsersRepo = adminUsersRepo;
         this.setEmailAlertsService = setEmailAlertsService;
         this.returnAlertsListService = returnAlertsListService;
+        this.emailVerificationService = emailVerificationService;
         this.awsMailService = awsMailService;
     }
 
@@ -135,10 +138,10 @@ public class EmailController {
         }
     }
 
-//    @GetMapping
-//    public ResponseDto<String> sendMail(){
-//        awsMailService.send();
-//        return ResponseDto.ofSuccess("good!");
-//    }
+    // 이메일 검증 엔드포인트
+    @PostMapping("/verify-email")
+    public String verifyEmail(@RequestBody String email) {
+        return emailVerificationService.verifyEmail(email);
+    }
 
 }
