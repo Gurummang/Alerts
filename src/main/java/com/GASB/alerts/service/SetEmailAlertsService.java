@@ -60,7 +60,7 @@ import java.util.Optional;
 
             alertSettings.setAlertEmails(alertEmails);
             alertSettingsRepo.save(alertSettings);
-            return new SetEmailsResponse("알람 설정이 완료되었습니다.", null);
+            return new SetEmailsResponse("알람 설정이 완료되었습니다.", unverifiedEmails);
         } else {
             return new SetEmailsResponse("등록되지 않은 이메일이 있습니다.인증 메일을 보내시겠습니까?", unverifiedEmails);
         }
@@ -112,7 +112,7 @@ import java.util.Optional;
             alertEmailsRepo.saveAll(newAlertEmails);
 
             alertSettingsRepo.save(alertSettings);
-            return new SetEmailsResponse("Successfully modified alerts.", null);
+            return new SetEmailsResponse("Successfully modified alerts.", unverifiedEmails);
         } else {
             return new SetEmailsResponse("등록되지 않은 이메일이 있습니다.인증 메일을 보내시겠습니까?", unverifiedEmails);
         }
