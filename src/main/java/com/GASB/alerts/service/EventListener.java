@@ -106,9 +106,9 @@ public class EventListener {
         if (isMalware(uploadId)) {
             notificationTypes.add("vt");
         }
-        if (isSensitive(uploadId)) {
-            notificationTypes.add("dlp");
-        }
+        // if (isSensitive(uploadId)) {
+           // notificationTypes.add("dlp");
+        //}
         if (isSuspicious(uploadId)) {
             notificationTypes.add("suspicious");
         }
@@ -216,14 +216,14 @@ public class EventListener {
         return false;
     }
 
-    private boolean isSensitive(long uploadId) {
-        return fileUploadRepo.findById(uploadId)
-                .map(FileUpload::getStoredFile)
-                .filter(storedFile -> storedFile.getDlpReport() != null) // DlpReport가 null이 아닌지 확인
-                .map(storedFile -> storedFile.getDlpReport().stream()
-                        .anyMatch(dlp -> dlp.getInfoCnt() >= 1)) // infoCnt가 1 이상인 DlpReport가 있는지 확인
-                .orElse(false); // 기본값은 false
-    }
+//    private boolean isSensitive(long uploadId) {
+//        return fileUploadRepo.findById(uploadId)
+//                .map(FileUpload::getStoredFile)
+//                .filter(storedFile -> storedFile.getDlpReport() != null) // DlpReport가 null이 아닌지 확인
+//                .map(storedFile -> storedFile.getDlpReport().stream()
+//                        .anyMatch(dlp -> dlp.getInfoCnt() >= 1)) // infoCnt가 1 이상인 DlpReport가 있는지 확인
+//                .orElse(false); // 기본값은 false
+//    }
 
     private FileUpload getFileUploadById(long uploadId) {
         return fileUploadRepo.findById(uploadId)

@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.util.List;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -43,8 +44,8 @@ public class StoredFile {
     private Gscan scanTable;
 
     @JsonIgnore
-    @OneToMany(mappedBy = "storedFile", cascade = CascadeType.ALL)
-    private List<DlpReport> dlpReport;
+    @OneToMany(mappedBy = "storedFile", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<DlpReport> dlpReport;
 
     @OneToMany(mappedBy = "storedFile")
     private List<FileUpload> fileUploads;
