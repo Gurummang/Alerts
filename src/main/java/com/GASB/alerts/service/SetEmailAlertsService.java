@@ -3,6 +3,7 @@ package com.GASB.alerts.service;
 import com.GASB.alerts.exception.AlertSettingsNotFoundException;
 import com.GASB.alerts.exception.UnauthorizedAccessException;
 import com.GASB.alerts.model.dto.request.SetEmailRequest;
+import com.GASB.alerts.model.dto.response.SetEmailsResponse;
 import com.GASB.alerts.model.entity.AdminUsers;
 import com.GASB.alerts.model.entity.AlertEmails;
 import com.GASB.alerts.model.entity.AlertSettings;
@@ -12,6 +13,7 @@ import com.GASB.alerts.repository.AlertSettingsRepo;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,34 +23,51 @@ import java.util.Optional;
     private final AlertSettingsRepo alertSettingsRepo;
     private final AlertEmailsRepo alertEmailsRepo;
 
-    public SetEmailAlertsService(AdminUsersRepo adminUsersRepo, AlertSettingsRepo alertSettingsRepo, AlertEmailsRepo alertEmailsRepo){
+    private final EmailVerificationService emailVerificationService;
+
+    public SetEmailAlertsService(AdminUsersRepo adminUsersRepo, AlertSettingsRepo alertSettingsRepo, AlertEmailsRepo alertEmailsRepo, EmailVerificationService emailVerificationService){
         this.adminUsersRepo = adminUsersRepo;
         this.alertSettingsRepo = alertSettingsRepo;
         this.alertEmailsRepo = alertEmailsRepo;
+        this.emailVerificationService=emailVerificationService;
     }
 
     @Transactional
-    public String setAlerts(long adminId, SetEmailRequest setEmailRequest){
+    public SetEmailsResponse setAlerts(long adminId, SetEmailRequest setEmailRequest){
         AdminUsers adminUsers = adminUsersRepo.findById(adminId)
                 .orElseThrow(() -> new IllegalArgumentException("Admin user not found"));
+        List<String> emails = setEmailRequest.getEmail();
+        List<String> unverifiedEmails = new ArrayList<>();
 
-        AlertSettings alertSettings = AlertSettings.toEntity(setEmailRequest, adminUsers);
+        // 이메일 검증
+        for (String email : emails) {
+            boolean isVerified = emailVerificationService.isVerified(email);
+            if (!isVerified) {
+                unverifiedEmails.add(email);
+            }
+        }
 
-        List<AlertEmails> emails = setEmailRequest.getEmail().stream()
-                .map(email -> AlertEmails.builder()
-                        .email(email)
-                        .alertSettings(alertSettings) // AlertEmails 엔티티에 AlertSettings 참조 설정
-                        .build())
-                .toList();
+        if (unverifiedEmails.isEmpty()) {
+            // 모든 이메일이 검증된 경우 알람 설정 저장
+            AlertSettings alertSettings = AlertSettings.toEntity(setEmailRequest, adminUsers);
 
-        alertSettings.setAlertEmails(emails);
+            List<AlertEmails> alertEmails = emails.stream()
+                    .map(email -> AlertEmails.builder()
+                            .email(email)
+                            .alertSettings(alertSettings)
+                            .build())
+                    .toList();
 
-        alertSettingsRepo.save(alertSettings);
-        return "success to set alerts.";
+            alertSettings.setAlertEmails(alertEmails);
+            alertSettingsRepo.save(alertSettings);
+            return new SetEmailsResponse("알람 설정이 완료되었습니다.", null);
+        } else {
+            return new SetEmailsResponse("등록되지 않은 이메일이 있습니다.인증 메일을 보내시겠습니까?", unverifiedEmails);
+        }
     }
 
     @Transactional
-    public String updateAlerts(long orgId, long alertId, SetEmailRequest setEmailRequest) {
+    public SetEmailsResponse updateAlerts(long orgId, long alertId, SetEmailRequest setEmailRequest) {
         // AlertSettings 조회
         Optional<AlertSettings> alertSettingsOptional = alertSettingsRepo.findById(alertId);
 
@@ -62,26 +81,41 @@ import java.util.Optional;
             throw new UnauthorizedAccessException("Admin is not authorized to update alertSettings with id: " + alertId);
         }
 
-        alertSettings.setTitle(setEmailRequest.getTitle());
-        alertSettings.setContent(setEmailRequest.getContent());
-        alertSettings.setSuspicious(setEmailRequest.isSuspicious());
-        alertSettings.setDlp(setEmailRequest.isSensitive());
-        alertSettings.setVt(setEmailRequest.isVt());
+        List<String> emails = setEmailRequest.getEmail();
+        List<String> unverifiedEmails = new ArrayList<>();
 
-        // 기존 이메일 삭제 후 새 이메일 저장
-        List<AlertEmails> newAlertEmails = setEmailRequest.getEmail().stream()
-                .map(email -> AlertEmails.builder()
-                        .alertSettings(alertSettings)
-                        .email(email)
-                        .build())
-                .toList();
+        // 이메일 검증
+        for (String email : emails) {
+            boolean isVerified = emailVerificationService.isVerified(email);
+            if (!isVerified) {
+                unverifiedEmails.add(email);
+            }
+        }
 
-        alertEmailsRepo.deleteByAlertSettings(alertSettings);
-        alertEmailsRepo.saveAll(newAlertEmails);
+        if (unverifiedEmails.isEmpty()) {
+            // 모든 이메일이 검증된 경우 알람 설정 저장
+            alertSettings.setTitle(setEmailRequest.getTitle());
+            alertSettings.setContent(setEmailRequest.getContent());
+            alertSettings.setSuspicious(setEmailRequest.isSuspicious());
+            alertSettings.setDlp(setEmailRequest.isSensitive());
+            alertSettings.setVt(setEmailRequest.isVt());
 
-        alertSettingsRepo.save(alertSettings);
+            // 기존 이메일 삭제 후 새 이메일 저장
+            List<AlertEmails> newAlertEmails = setEmailRequest.getEmail().stream()
+                    .map(email -> AlertEmails.builder()
+                            .alertSettings(alertSettings)
+                            .email(email)
+                            .build())
+                    .toList();
 
-        return "Successfully modified alerts.";
+            alertEmailsRepo.deleteByAlertSettings(alertSettings);
+            alertEmailsRepo.saveAll(newAlertEmails);
+
+            alertSettingsRepo.save(alertSettings);
+            return new SetEmailsResponse("Successfully modified alerts.", null);
+        } else {
+            return new SetEmailsResponse("등록되지 않은 이메일이 있습니다.인증 메일을 보내시겠습니까?", unverifiedEmails);
+        }
     }
 
 

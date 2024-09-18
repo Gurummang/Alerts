@@ -3,9 +3,11 @@ package com.GASB.alerts.controller;
 import com.GASB.alerts.annotation.JWT.ValidateJWT;
 import com.GASB.alerts.exception.InvalidJwtException;
 import com.GASB.alerts.model.dto.request.DeleteAlertsRequest;
+import com.GASB.alerts.model.dto.request.EmailsRequest;
 import com.GASB.alerts.model.dto.request.SetEmailRequest;
 import com.GASB.alerts.model.dto.response.AlertsListResponse;
 import com.GASB.alerts.model.dto.response.ResponseDto;
+import com.GASB.alerts.model.dto.response.SetEmailsResponse;
 import com.GASB.alerts.model.entity.AdminUsers;
 import com.GASB.alerts.repository.AdminUsersRepo;
 import com.GASB.alerts.service.AwsMailService;
@@ -69,7 +71,7 @@ public class EmailController {
     // 알림 설정 저장
     @PostMapping
     @ValidateJWT
-    public ResponseDto<String> setEmailAlerts(HttpServletRequest servletRequest, @RequestBody SetEmailRequest setEmailRequest){
+    public ResponseDto<SetEmailsResponse> setEmailAlerts(HttpServletRequest servletRequest, @RequestBody SetEmailRequest setEmailRequest){
         try {
             Optional<AdminUsers> adminOptional = getAdminUser(servletRequest);
             if (adminOptional.isEmpty()) {
@@ -77,8 +79,25 @@ public class EmailController {
             }
 
             long adminId = adminOptional.get().getId();
-            String save = setEmailAlertsService.setAlerts(adminId, setEmailRequest);
+            SetEmailsResponse save = setEmailAlertsService.setAlerts(adminId, setEmailRequest);
             return ResponseDto.ofSuccess(save);
+        } catch (Exception e){
+            return ResponseDto.ofFail(e.getMessage());
+        }
+    }
+
+    // 인증 메일 보내기
+    // 이메일 검증 엔드포인트
+    @PostMapping("/verify-email")
+    @ValidateJWT
+    public ResponseDto<SetEmailsResponse> verifyEmail(HttpServletRequest servletRequest, @RequestBody EmailsRequest email) {
+        try {
+            Optional<AdminUsers> adminOptional = getAdminUser(servletRequest);
+            if (adminOptional.isEmpty()) {
+                return ResponseDto.ofFail(EMAIL_NOT_FOUND);
+            }
+            SetEmailsResponse result = emailVerificationService.verifyEmails(email.getEmail());
+            return ResponseDto.ofSuccess(result);
         } catch (Exception e){
             return ResponseDto.ofFail(e.getMessage());
         }
@@ -105,7 +124,7 @@ public class EmailController {
     // 알림 설정 수정
     @PutMapping("/edit/{id}")
     @ValidateJWT
-    public ResponseDto<String> modifyEmailAlerts(HttpServletRequest servletRequest,@PathVariable long id, @RequestBody SetEmailRequest setEmailRequest){
+    public ResponseDto<SetEmailsResponse> modifyEmailAlerts(HttpServletRequest servletRequest,@PathVariable long id, @RequestBody SetEmailRequest setEmailRequest){
         try{
             Optional<AdminUsers> adminOptional = getAdminUser(servletRequest);
             if (adminOptional.isEmpty()) {
@@ -113,7 +132,7 @@ public class EmailController {
             }
 
             long orgId = adminOptional.get().getOrg().getId();
-            String modify = setEmailAlertsService.updateAlerts(orgId, id, setEmailRequest);
+            SetEmailsResponse modify = setEmailAlertsService.updateAlerts(orgId, id, setEmailRequest);
             return ResponseDto.ofSuccess(modify);
         } catch (Exception e){
             return ResponseDto.ofFail(e.getMessage());
@@ -137,11 +156,4 @@ public class EmailController {
             return ResponseDto.ofFail(e.getMessage());
         }
     }
-
-    // 이메일 검증 엔드포인트
-    @PostMapping("/verify-email")
-    public String verifyEmail(@RequestBody String email) {
-        return emailVerificationService.verifyEmail(email);
-    }
-
 }
