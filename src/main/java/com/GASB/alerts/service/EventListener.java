@@ -25,16 +25,12 @@ public class EventListener {
     private final FileUploadRepo fileUploadRepo;
     private final StoredFileRepo storedFileRepo;
     private final AwsMailService awsMailService;
-    private final RabbitTemplate rabbitTemplate;
-    private final RabbitMQProperties rabbitMQProperties;
 
-    public EventListener(AlertSettingsRepo alertSettingsRepo, FileUploadRepo fileUploadRepo, StoredFileRepo storedFileRepo, AwsMailService awsMailService, RabbitTemplate rabbitTemplate, RabbitMQProperties rabbitMQProperties){
+    public EventListener(AlertSettingsRepo alertSettingsRepo, FileUploadRepo fileUploadRepo, StoredFileRepo storedFileRepo, AwsMailService awsMailService){
         this.alertSettingsRepo = alertSettingsRepo;
         this.fileUploadRepo = fileUploadRepo;
         this.storedFileRepo = storedFileRepo;
         this.awsMailService = awsMailService;
-        this.rabbitTemplate = rabbitTemplate;
-        this.rabbitMQProperties = rabbitMQProperties;
     }
 
     // params: 업로드 id
@@ -106,9 +102,9 @@ public class EventListener {
         if (isMalware(uploadId)) {
             notificationTypes.add("vt");
         }
-        // if (isSensitive(uploadId)) {
-           // notificationTypes.add("dlp");
-        //}
+        if (isSensitive(uploadId)) {
+           notificationTypes.add("dlp");
+        }
         if (isSuspicious(uploadId)) {
             notificationTypes.add("suspicious");
         }
@@ -130,17 +126,14 @@ public class EventListener {
     }
 
     @RabbitListener(queues = "#{@rabbitMQProperties.suspiciousQueue}")
-    public void suspiciousEvent(long storedFileId) {
-        log.info("suspiciousEvent storedFileId: {}" , storedFileId);
-        Optional<StoredFile> storedFile = storedFileRepo.findById(storedFileId);
-        List<FileUpload> uploads = fileUploadRepo.findListByHash(storedFile.get().getSaltedHash());
+    public void suspiciousEvent(long uploadId) {
+        log.info("suspiciousEvent uploadId: {}" , uploadId);
+        Long orgId = getOrgIdByUploadId(uploadId);
+        List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndSuspiciousTrue(orgId);
 
-        for(FileUpload f : uploads) {
-            Long orgId = getOrgIdByUploadId(f.getId());
-            List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndSuspiciousTrue(orgId);
-
+        if(isSuspicious(uploadId)) {
             // Suspicious 상태와 일치하는 알림 설정에 따라 메일 전송
-            sendMailIfConditionsMatch(alertSettings, f.getId(), "suspicious");
+            sendMailIfConditionsMatch(alertSettings, uploadId, "suspicious");
         }
     }
 
@@ -216,14 +209,14 @@ public class EventListener {
         return false;
     }
 
-//    private boolean isSensitive(long uploadId) {
-//        return fileUploadRepo.findById(uploadId)
-//                .map(FileUpload::getStoredFile)
-//                .filter(storedFile -> storedFile.getDlpReport() != null) // DlpReport가 null이 아닌지 확인
-//                .map(storedFile -> storedFile.getDlpReport().stream()
-//                        .anyMatch(dlp -> dlp.getInfoCnt() >= 1)) // infoCnt가 1 이상인 DlpReport가 있는지 확인
-//                .orElse(false); // 기본값은 false
-//    }
+    private boolean isSensitive(long uploadId) {
+        return fileUploadRepo.findById(uploadId)
+                .map(FileUpload::getStoredFile)
+                .filter(storedFile -> storedFile.getDlpReport() != null) // dlpReport가 null이 아닌지 확인
+                .map(storedFile -> storedFile.getDlpReport().stream()
+                        .anyMatch(dlpReport -> dlpReport.getInfoCnt() >= 1)) // infoCnt가 1 이상인 DlpReport가 있는지 확인
+                .orElse(false); // 기본값은 false
+    }
 
     private FileUpload getFileUploadById(long uploadId) {
         return fileUploadRepo.findById(uploadId)
