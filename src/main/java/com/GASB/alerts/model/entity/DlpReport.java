@@ -6,24 +6,27 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Entity
 @Getter
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
+@Entity
 @Table(name = "dlp_report")
 public class DlpReport {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @OneToOne
+    @Column(name="policy_id")
+    private int policyId;
+
+    @ManyToOne
     @JoinColumn(name = "file_id", nullable = false, referencedColumnName = "id")
     private StoredFile storedFile;
 
-    @Column(name="dlp")
-    private Boolean dlp;
+    @Column(name="pii_id")
+    private int piiId;
 
-    @Column(name = "result_data", columnDefinition = "TEXT")
-    private String resultData;
+    @Column(name = "info_cnt")
+    private int infoCnt;
 }

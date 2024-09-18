@@ -43,8 +43,8 @@ public class StoredFile {
     private Gscan scanTable;
 
     @JsonIgnore
-    @OneToOne(mappedBy = "storedFile", cascade = CascadeType.ALL)
-    private DlpReport dlpReport;
+    @OneToMany(mappedBy = "storedFile", cascade = CascadeType.ALL)
+    private List<DlpReport> dlpReport;
 
     @OneToMany(mappedBy = "storedFile")
     private List<FileUpload> fileUploads;
