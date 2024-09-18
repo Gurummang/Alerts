@@ -32,14 +32,12 @@ public class EmailController {
     private final SetEmailAlertsService setEmailAlertsService;
     private final ReturnAlertsListService returnAlertsListService;
     private final EmailVerificationService emailVerificationService;
-    private final AwsMailService awsMailService;
 
-    public EmailController(AdminUsersRepo adminUsersRepo, SetEmailAlertsService setEmailAlertsService, ReturnAlertsListService returnAlertsListService, EmailVerificationService emailVerificationService, AwsMailService awsMailService){
+    public EmailController(AdminUsersRepo adminUsersRepo, SetEmailAlertsService setEmailAlertsService, ReturnAlertsListService returnAlertsListService, EmailVerificationService emailVerificationService){
         this.adminUsersRepo = adminUsersRepo;
         this.setEmailAlertsService = setEmailAlertsService;
         this.returnAlertsListService = returnAlertsListService;
         this.emailVerificationService = emailVerificationService;
-        this.awsMailService = awsMailService;
     }
 
     private Optional<AdminUsers> getAdminUser(HttpServletRequest servletRequest) {
