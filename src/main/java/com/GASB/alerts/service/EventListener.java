@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.ByteBuffer;
 import java.util.HashSet;
@@ -215,7 +216,7 @@ public class EventListener {
     }
 
     private boolean isSensitive(long uploadId) {
-        return fileUploadRepo.findById(uploadId)
+        return fileUploadRepo.findByIdWithDlpReport(uploadId)
                 .map(FileUpload::getStoredFile)
                 .filter(storedFile -> storedFile.getDlpReport() != null) // dlpReport가 null이 아닌지 확인
                 .map(storedFile -> storedFile.getDlpReport().stream()
