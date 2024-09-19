@@ -21,7 +21,7 @@ public class AwsMailService{
     public void sendMail(List<AlertSettings> alertSettings){
         if (alertSettings == null || alertSettings.isEmpty()) {
             log.info("Alert settings are empty. No email will be sent.");
-            return;  // 메서드 종료
+            return;
         }
         try {
             for(AlertSettings a : alertSettings) {

@@ -19,7 +19,4 @@ public interface FileUploadRepo extends JpaRepository<FileUpload, Long> {
     @EntityGraph(attributePaths = {"storedFile.dlpReport"})
     @Query("SELECT f FROM FileUpload f WHERE f.id = :uploadId")
     Optional<FileUpload> findByIdWithDlpReport(@Param("uploadId") long uploadId);
-
-    @Query("SELECT fu FROM FileUpload fu WHERE fu.hash = :hash")
-    List<FileUpload> findListByHash(@Param("hash") String hash);
 }

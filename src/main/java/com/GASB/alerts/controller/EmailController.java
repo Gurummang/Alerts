@@ -10,7 +10,6 @@ import com.GASB.alerts.model.dto.response.ResponseDto;
 import com.GASB.alerts.model.dto.response.SetEmailsResponse;
 import com.GASB.alerts.model.entity.AdminUsers;
 import com.GASB.alerts.repository.AdminUsersRepo;
-import com.GASB.alerts.service.AwsMailService;
 import com.GASB.alerts.service.EmailVerificationService;
 import com.GASB.alerts.service.ReturnAlertsListService;
 import com.GASB.alerts.service.SetEmailAlertsService;

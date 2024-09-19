@@ -9,8 +9,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface StoredFileRepo extends JpaRepository<StoredFile, Long> {
 
-    boolean existsBySaltedHash(String saltedHash);
-
     @Query("SELECT s FROM StoredFile s WHERE s.saltedHash = :saltedHash")
     StoredFile findBySaltedHash(@Param("saltedHash") String saltedHash);
 }

@@ -1,6 +1,5 @@
 package com.GASB.alerts.service;
 
-import com.GASB.alerts.config.RabbitMQProperties;
 import com.GASB.alerts.exception.AlertSettingsNotFoundException;
 import com.GASB.alerts.model.entity.*;
 import com.GASB.alerts.repository.AlertSettingsRepo;
@@ -8,16 +7,13 @@ import com.GASB.alerts.repository.FileUploadRepo;
 import com.GASB.alerts.repository.StoredFileRepo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -188,7 +184,6 @@ public class EventListener {
         }
     }
 
-
     private Long getOrgIdByUploadId(long uploadId) {
         return Optional.ofNullable(fileUploadRepo.findOrgIdByUploadId(uploadId))
                 .orElseThrow(() -> new AlertSettingsNotFoundException("Organization ID not found for uploadId: " + uploadId));
@@ -222,7 +217,7 @@ public class EventListener {
                 .filter(storedFile -> storedFile.getDlpReport() != null) // dlpReport가 null이 아닌지 확인
                 .map(storedFile -> storedFile.getDlpReport().stream()
                         .anyMatch(dlpReport -> dlpReport.getInfoCnt() >= 1)) // infoCnt가 1 이상인 DlpReport가 있는지 확인
-                .orElse(false); // 기본값은 false
+                .orElse(false);
     }
 
     private FileUpload getFileUploadById(long uploadId) {
