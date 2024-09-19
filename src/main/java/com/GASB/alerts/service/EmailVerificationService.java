@@ -69,6 +69,15 @@ public class EmailVerificationService {
         boolean allSuccess = true;
 
         for (String e : emails) {
+            // 이메일 형식 검증
+            if (!isValidEmail(e)) {
+                String errorMessage = "유효하지 않은 이메일 형식입니다: " + e;
+                logger.error(errorMessage);
+                failedEmails.add(e);
+                allSuccess = false;
+                continue; // 이메일 형식이 유효하지 않으면 다음 이메일로 넘어감
+            }
+
             try {
                 // 이메일 검증 요청 생성
                 VerifyEmailIdentityRequest request = new VerifyEmailIdentityRequest()
