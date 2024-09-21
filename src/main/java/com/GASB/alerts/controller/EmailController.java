@@ -60,7 +60,7 @@ public class EmailController {
             long orgId = adminOptional.get().getOrg().getId();
             List<AlertsListResponse> result = returnAlertsListService.getAlertsList(orgId);
             return ResponseDto.ofSuccess(result);
-        } catch (Exception e){
+        } catch (RuntimeException e){
             return ResponseDto.ofFail(e.getMessage());
         }
     }
@@ -78,7 +78,7 @@ public class EmailController {
             long adminId = adminOptional.get().getId();
             SetEmailsResponse save = setEmailAlertsService.setAlerts(adminId, setEmailRequest);
             return ResponseDto.ofSuccess(save);
-        } catch (Exception e){
+        } catch (RuntimeException e){
             return ResponseDto.ofFail(e.getMessage());
         }
     }
@@ -95,7 +95,7 @@ public class EmailController {
             }
             SetEmailsResponse result = emailVerificationService.verifyEmails(email.getEmail());
             return ResponseDto.ofSuccess(result);
-        } catch (Exception e){
+        } catch (RuntimeException e){
             return ResponseDto.ofFail(e.getMessage());
         }
     }
@@ -113,7 +113,7 @@ public class EmailController {
             long orgId = adminOptional.get().getOrg().getId();
             AlertsListResponse result = returnAlertsListService.getAlerts(orgId, id);
             return ResponseDto.ofSuccess(result);
-        } catch (Exception e){
+        } catch (RuntimeException e){
             return ResponseDto.ofFail(e.getMessage());
         }
     }
@@ -131,7 +131,7 @@ public class EmailController {
             long orgId = adminOptional.get().getOrg().getId();
             SetEmailsResponse modify = setEmailAlertsService.updateAlerts(orgId, id, setEmailRequest);
             return ResponseDto.ofSuccess(modify);
-        } catch (Exception e){
+        } catch (RuntimeException e){
             return ResponseDto.ofFail(e.getMessage());
         }
     }
@@ -149,7 +149,7 @@ public class EmailController {
             long orgId = adminOptional.get().getOrg().getId();
             String delete = setEmailAlertsService.deleteAlerts(orgId, deleteAlertsRequest.getAlertIds());
             return ResponseDto.ofSuccess(delete);
-        } catch (Exception e){
+        } catch (RuntimeException e){
             return ResponseDto.ofFail(e.getMessage());
         }
     }
