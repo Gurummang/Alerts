@@ -23,6 +23,7 @@ public class AwsMailService {
     private final AmazonSimpleEmailService amazonSimpleEmailService;
     private final AlertEmailsRepo alertEmailsRepo;
     private final FileUploadRepo fileUploadRepo;
+    private final PolicyRepo policyRepo;
     private final MailUtil mailUtil;
 
     public void sendMail(List<AlertSettings> alertSettings, long uploadId) {
@@ -30,6 +31,7 @@ public class AwsMailService {
             log.info("Alert settings are empty. No email will be sent.");
             return;
         }
+        String policyName;
         Optional<FileUpload> fileUploadOptional = fileUploadRepo.findById(uploadId);
         fileUploadOptional.ifPresentOrElse(fileUpload -> {
             try {

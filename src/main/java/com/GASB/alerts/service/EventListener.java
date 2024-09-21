@@ -3,6 +3,7 @@ package com.GASB.alerts.service;
 import com.GASB.alerts.exception.AlertSettingsNotFoundException;
 import com.GASB.alerts.model.entity.*;
 import com.GASB.alerts.repository.AlertSettingsRepo;
+import com.GASB.alerts.repository.DlpReportRepo;
 import com.GASB.alerts.repository.FileUploadRepo;
 import com.GASB.alerts.repository.StoredFileRepo;
 import lombok.extern.slf4j.Slf4j;
@@ -21,13 +22,11 @@ public class EventListener {
 
     private final AlertSettingsRepo alertSettingsRepo;
     private final FileUploadRepo fileUploadRepo;
-    private final StoredFileRepo storedFileRepo;
     private final AwsMailService awsMailService;
 
-    public EventListener(AlertSettingsRepo alertSettingsRepo, FileUploadRepo fileUploadRepo, StoredFileRepo storedFileRepo, AwsMailService awsMailService){
+    public EventListener(AlertSettingsRepo alertSettingsRepo, FileUploadRepo fileUploadRepo, AwsMailService awsMailService){
         this.alertSettingsRepo = alertSettingsRepo;
         this.fileUploadRepo = fileUploadRepo;
-        this.storedFileRepo = storedFileRepo;
         this.awsMailService = awsMailService;
     }
 
@@ -150,11 +149,26 @@ public class EventListener {
             List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndDlpTrue(orgId);
 
             // DLP 상태와 일치하는 알림 설정에 따라 메일 전송
-            sendMailIfConditionsMatch(alertSettings, uploadId, "dlp");
+            sendMailIfConditionsMatchDlp(alertSettings, uploadId, policyId);
         } else {
             log.info("Invalid message received.");
         }
     }
+
+    private void sendMailIfConditionsMatchDlp(List<AlertSettings> alertSettings, long uploadId, long policyId) {
+        List<AlertSettings> matchedSettings = alertSettings.stream()
+                .filter(AlertSettings::isDlp) // DLP 상태와 일치하는지 확인
+                .toList();
+
+        // 조건을 만족하는 알림 설정이 있는 경우에만 메일 전송
+        if (!matchedSettings.isEmpty()) {
+            awsMailService.sendMail(matchedSettings, uploadId);
+            log.info("메일 보낼거임! -> uploadId : {}", uploadId);
+        } else {
+            log.info("No matching alert settings found for alert type: {} and upload ID: {}", policyId, uploadId);
+        }
+    }
+
 
     private void sendMailIfConditionsMatch(List<AlertSettings> alertSettings, long uploadId, String alertType) {
         List<AlertSettings> matchedSettings = alertSettings.stream()
@@ -168,7 +182,7 @@ public class EventListener {
                             return setting.isSuspicious();  // Suspicious 상태와 일치하는지 확인
                         case "dlp":
                             log.info("dlp");
-                            return setting.isDlp();  // DLP 상태와 일치하는지 확인
+                            return setting.isDlp();
                         default:
                             return false;
                     }
@@ -191,7 +205,7 @@ public class EventListener {
 
     private StoredFile getStoredFile(long uploadId){
         FileUpload fileUpload = getFileUploadById(uploadId);
-        return storedFileRepo.findBySaltedHash(fileUpload.getHash());
+        return fileUpload.getStoredFile();
     }
 
     private boolean isMalware(long uploadId) {
