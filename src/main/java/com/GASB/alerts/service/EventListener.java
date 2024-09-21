@@ -85,7 +85,7 @@ public class EventListener {
                     .toList();
 
             if (!filteredSettings.isEmpty()) {
-                awsMailService.sendMail(filteredSettings);
+                awsMailService.sendMail(filteredSettings, uploadId);
                 log.info("메일 보낼거임! -> uploadId : {}", uploadId);
                 filteredSettings.forEach(setting -> sentAlertSettings.add(setting.getId()));
             }
@@ -177,7 +177,7 @@ public class EventListener {
 
         // 조건을 만족하는 알림 설정이 있는 경우에만 메일 전송
         if (!matchedSettings.isEmpty()) {
-            awsMailService.sendMail(matchedSettings);
+            awsMailService.sendMail(matchedSettings, uploadId);
             log.info("메일 보낼거임! -> uploadId : {}", uploadId);
         } else {
             log.info("No matching alert settings found for alert type: {} and upload ID: {}", alertType, uploadId);

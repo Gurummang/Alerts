@@ -1,5 +1,8 @@
 package com.GASB.alerts.service;
 
+import com.GASB.alerts.model.entity.Activities;
+import com.GASB.alerts.model.entity.FileUpload;
+import com.GASB.alerts.repository.ActivitiesRepo;
 import jakarta.mail.Message;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +28,11 @@ import java.util.Properties;
 @RequiredArgsConstructor
 public class MailUtil {
 
-    public static SendRawEmailRequest getSendRawEmailRequest(String title, String content, List<String> receivers) throws MessagingException, IOException {
+    private final ActivitiesRepo activitiesRepo;
+
+    public SendRawEmailRequest getSendRawEmailRequest(String title, String content, List<String> receivers, FileUpload fileUpload) throws MessagingException, IOException {
+        Activities activities = activitiesRepo.findAllBySaasFileIdAndTimeStamp(fileUpload.getSaasFileId(), fileUpload.getTimestamp());
+
         log.info("메일 전송 중");
         // 유효성 검사
         if (title == null || title.isEmpty()) {
@@ -60,8 +67,24 @@ public class MailUtil {
         textPart.setContent(content, "text/plain; charset=UTF-8");
         msg.addBodyPart(textPart);
 
+        // 파일 정보 추가 (커스텀 내용)
+        StringBuilder fileInfo = new StringBuilder("< 파일 정보 >\n");
+        fileInfo.append("SaaS: ").append(fileUpload.getOrgSaaS().getSaas().getSaasName()).append("\n");
+        fileInfo.append("업로드 채널: ").append(activities.getUploadChannel()).append("\n");
+        fileInfo.append("파일 이름: ").append(activities.getFileName()).append("\n");
+        fileInfo.append("파일 업로드 시각: ").append(fileUpload.getTimestamp()).append("\n");
+
+
+        // 파일 정보 텍스트 파트로 추가
+        MimeBodyPart fileInfoPart = new MimeBodyPart();
+        fileInfoPart.setContent(fileInfo.toString(), "text/plain; charset=UTF-8");
+        msg.addBodyPart(fileInfoPart);
+
+
         // 메일 콘텐츠 설정
         message.setContent(msg);
+
+
 
         // 메일을 RawMessage로 변환
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
