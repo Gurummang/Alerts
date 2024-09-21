@@ -4,16 +4,14 @@ import com.GASB.alerts.model.dto.response.SetEmailsResponse;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.simpleemail.AmazonSimpleEmailService;
-import com.amazonaws.services.simpleemail.model.ListIdentitiesRequest;
-import com.amazonaws.services.simpleemail.model.ListIdentitiesResult;
-import com.amazonaws.services.simpleemail.model.VerifyEmailIdentityRequest;
-import com.amazonaws.services.simpleemail.model.VerifyEmailIdentityResult;
+import com.amazonaws.services.simpleemail.model.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 @Service
@@ -39,22 +37,33 @@ public class EmailVerificationService {
     public boolean isVerified(String emailAddress) {
 
         // 이미 검증된 이메일 주소 목록을 가져오기 위한 요청 생성
-        ListIdentitiesRequest listIdentitiesRequest = new ListIdentitiesRequest().withIdentityType("EmailAddress");
-        ListIdentitiesResult listIdentitiesResult = amazonSimpleEmailService.listIdentities(listIdentitiesRequest);
+        List<String> emailList = new ArrayList<>();
+        emailList.add(emailAddress.trim());
 
-        // 검증된 이메일 주소 목록 가져오기
-        List<String> verifiedEmails = listIdentitiesResult.getIdentities();
+        // 이메일 확인 상태를 가져오기 위한 요청 생성
+        GetIdentityVerificationAttributesRequest verificationAttributesRequest =
+                new GetIdentityVerificationAttributesRequest().withIdentities(emailList);
 
-        // 이메일이 이미 검증된 상태인지 확인
-        boolean isVerified = verifiedEmails.stream().anyMatch(verifiedEmail -> verifiedEmail.equalsIgnoreCase(emailAddress.trim()));
+        // AWS SES에서 이메일 상태 확인
+        GetIdentityVerificationAttributesResult verificationAttributesResult =
+                amazonSimpleEmailService.getIdentityVerificationAttributes(verificationAttributesRequest);
 
-        if (isVerified) {
-            log.info("Email " + emailAddress + " is verified.");
+        // 해당 이메일의 검증 상태를 확인
+        Map<String, IdentityVerificationAttributes> attributesMap = verificationAttributesResult.getVerificationAttributes();
+
+        if (attributesMap.containsKey(emailAddress.trim())) {
+            IdentityVerificationAttributes attributes = attributesMap.get(emailAddress.trim());
+            String verificationStatus = attributes.getVerificationStatus();
+
+            // 이메일 상태가 "Success"인 경우에만 검증된 것으로 간주
+            if ("Success".equalsIgnoreCase(verificationStatus)) {
+                return true;
+            } else {
+                return false;
+            }
         } else {
-            log.info("Email " + emailAddress + " is not verified.");
+            return false;
         }
-
-        return isVerified;
     }
 
     public SetEmailsResponse verifyEmails(List<String> emails) {
@@ -93,7 +102,7 @@ public class EmailVerificationService {
                 log.error(errorMessage);
                 failedEmails.add(e);
                 allSuccess = false;
-            } catch (Exception ex) {
+            } catch (RuntimeException ex) {
                 // 일반 예외 처리
                 String errorMessage = "예상치 못한 오류가 발생했습니다: " + e + ". 오류 메시지: " + ex.getMessage();
                 log.error(errorMessage);
