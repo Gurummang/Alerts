@@ -5,11 +5,15 @@ import com.GASB.alerts.exception.InvalidJwtException;
 import com.GASB.alerts.model.dto.request.DeleteAlertsRequest;
 import com.GASB.alerts.model.dto.request.EmailsRequest;
 import com.GASB.alerts.model.dto.request.SetEmailRequest;
+import com.GASB.alerts.model.dto.request.TestRequest;
 import com.GASB.alerts.model.dto.response.AlertsListResponse;
 import com.GASB.alerts.model.dto.response.ResponseDto;
 import com.GASB.alerts.model.dto.response.SetEmailsResponse;
 import com.GASB.alerts.model.entity.AdminUsers;
+import com.GASB.alerts.model.entity.AlertSettings;
 import com.GASB.alerts.repository.AdminUsersRepo;
+import com.GASB.alerts.repository.AlertSettingsRepo;
+import com.GASB.alerts.service.AwsMailService;
 import com.GASB.alerts.service.EmailVerificationService;
 import com.GASB.alerts.service.ReturnAlertsListService;
 import com.GASB.alerts.service.SetEmailAlertsService;
@@ -27,16 +31,20 @@ public class EmailController {
     private static final String EMAIL_NOT_FOUND = "Admin not found with email: ";
     private static final String INVALID_JWT_MSG = "Invalid JWT: email attribute is missing.";
     private final AdminUsersRepo adminUsersRepo;
+    private final AlertSettingsRepo alertSettingsRepo;
 
     private final SetEmailAlertsService setEmailAlertsService;
     private final ReturnAlertsListService returnAlertsListService;
     private final EmailVerificationService emailVerificationService;
+    private final AwsMailService awsMailService;
 
-    public EmailController(AdminUsersRepo adminUsersRepo, SetEmailAlertsService setEmailAlertsService, ReturnAlertsListService returnAlertsListService, EmailVerificationService emailVerificationService){
+    public EmailController(AwsMailService awsMailService, AlertSettingsRepo alertSettingsRepo, AdminUsersRepo adminUsersRepo, SetEmailAlertsService setEmailAlertsService, ReturnAlertsListService returnAlertsListService, EmailVerificationService emailVerificationService){
         this.adminUsersRepo = adminUsersRepo;
         this.setEmailAlertsService = setEmailAlertsService;
         this.returnAlertsListService = returnAlertsListService;
         this.emailVerificationService = emailVerificationService;
+        this.alertSettingsRepo = alertSettingsRepo;
+        this.awsMailService=awsMailService;
     }
 
     private Optional<AdminUsers> getAdminUser(HttpServletRequest servletRequest) {
@@ -152,5 +160,13 @@ public class EmailController {
         } catch (RuntimeException e){
             return ResponseDto.ofFail(e.getMessage());
         }
+    }
+
+    @GetMapping("/test")
+    public String sendMail(@RequestBody TestRequest testRequest){
+        List<AlertSettings> allAlertSettings = alertSettingsRepo.findAllByOrgId(1);
+        System.out.println(testRequest.getFileId());
+        awsMailService.sendMail(allAlertSettings, testRequest.getFileId());
+        return "success";
     }
 }
