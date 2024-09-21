@@ -33,8 +33,7 @@ public class EventListener {
     // params: 업로드 id
     // storedFile이 이미 있는 경우
     @RabbitListener(queues = "#{@rabbitMQProperties.uploadQueue}")
-    public void uploadEvent(String payload) {
-        long uploadId = Long.parseLong(payload.trim());
+    public void uploadEvent(long uploadId) {
         log.info("uploadId: {}", uploadId);
 
         StoredFile storedFile = getStoredFile(uploadId);
