@@ -3,9 +3,7 @@ package com.GASB.alerts.service;
 import com.GASB.alerts.exception.AlertSettingsNotFoundException;
 import com.GASB.alerts.model.entity.*;
 import com.GASB.alerts.repository.AlertSettingsRepo;
-import com.GASB.alerts.repository.DlpReportRepo;
 import com.GASB.alerts.repository.FileUploadRepo;
-import com.GASB.alerts.repository.StoredFileRepo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
@@ -148,23 +146,9 @@ public class EventListener {
             List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndDlpTrue(orgId);
 
             // DLP 상태와 일치하는 알림 설정에 따라 메일 전송
-            sendMailIfConditionsMatchDlp(alertSettings, uploadId, policyId);
+            sendMailIfConditionsMatch(alertSettings, uploadId, "dlp");
         } else {
             log.info("Invalid message received.");
-        }
-    }
-
-    private void sendMailIfConditionsMatchDlp(List<AlertSettings> alertSettings, long uploadId, long policyId) {
-        List<AlertSettings> matchedSettings = alertSettings.stream()
-                .filter(AlertSettings::isDlp) // DLP 상태와 일치하는지 확인
-                .toList();
-
-        // 조건을 만족하는 알림 설정이 있는 경우에만 메일 전송
-        if (!matchedSettings.isEmpty()) {
-            awsMailService.sendMail(matchedSettings, uploadId);
-            log.info("메일 보낼거임! -> uploadId : {}", uploadId);
-        } else {
-            log.info("No matching alert settings found for alert type: {} and upload ID: {}", policyId, uploadId);
         }
     }
 
