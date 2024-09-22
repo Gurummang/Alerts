@@ -31,7 +31,6 @@ public class AwsMailService {
             log.info("Alert settings are empty. No email will be sent.");
             return;
         }
-        String policyName;
         Optional<FileUpload> fileUploadOptional = fileUploadRepo.findById(uploadId);
         fileUploadOptional.ifPresentOrElse(fileUpload -> {
             try {
