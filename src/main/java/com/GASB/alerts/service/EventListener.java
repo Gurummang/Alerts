@@ -32,18 +32,30 @@ public class EventListener {
     // storedFile이 이미 있는 경우
     @RabbitListener(queues = "#{@rabbitMQProperties.uploadQueue}")
     public void uploadEvent(long uploadId) {
+        log.info("Received upload event with uploadId: {}", uploadId);
         try {
-            log.info("uploadId: {}", uploadId);
             StoredFile storedFile = getStoredFile(uploadId);
-            if (storedFile.getFileStatus().getVtStatus() == 1 ||
-                    storedFile.getFileStatus().getDlpStatus() == 1 ||
-                    storedFile.getFileStatus().getGscanStatus() == 1) {
+            if (storedFile == null) {
+                log.error("StoredFile is null for uploadId: {}", uploadId);
+                return;
+            }
+
+            FileStatus fileStatus = storedFile.getFileStatus();
+            if (fileStatus == null) {
+                log.error("FileStatus is null for storedFile with uploadId: {}", uploadId);
+                return;
+            }
+
+            if (fileStatus.getVtStatus() == 1 || fileStatus.getDlpStatus() == 1 || fileStatus.getGscanStatus() == 1) {
+                log.info("Matching condition found for uploadId: {}", uploadId);
                 sendMailBasedOnConditions(uploadId);
             }
         } catch (RuntimeException e) {
-            log.error("Exception in uploadEvent: " + e.getMessage(), e);
+            // 예외가 발생한 경우 예외 메시지와 스택 트레이스를 로깅
+            log.error("Exception occurred in uploadEvent: " + e.getMessage(), e);
         }
     }
+
 
     private void sendMailBasedOnConditions(long uploadId) {
         Set<String> notificationTypes = determineNotificationTypes(uploadId);
@@ -215,9 +227,19 @@ public class EventListener {
                 .orElseThrow(() -> new AlertSettingsNotFoundException("Organization ID not found for uploadId: " + uploadId));
     }
 
-    private StoredFile getStoredFile(long uploadId){
-        FileUpload fileUpload = getFileUploadById(uploadId);
-        return fileUpload.getStoredFile();
+    private StoredFile getStoredFile(long uploadId) {
+        Optional<FileUpload> optionalFileUpload = fileUploadRepo.findById(uploadId);
+        if (optionalFileUpload.isEmpty()) {
+            log.warn("FileUpload not found for uploadId: {}", uploadId);
+            return null;
+        }
+
+        FileUpload fileUpload = optionalFileUpload.get();
+        StoredFile storedFile = fileUpload.getStoredFile();
+        if (storedFile == null) {
+            log.warn("StoredFile is null for uploadId: {}", uploadId);
+        }
+        return storedFile;
     }
 
     private boolean isMalware(long uploadId) {
