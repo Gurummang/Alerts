@@ -41,8 +41,7 @@ public class EventListener {
                 sendMailBasedOnConditions(uploadId);
             }
         } catch (RuntimeException e) {
-            log.error("Exception occurred in uploadEvent: " + e.getMessage(), e);
-            throw e;
+            log.error("Exception in uploadEvent: " + e.getMessage(), e);
         }
     }
 
@@ -126,10 +125,10 @@ public class EventListener {
             if (isMalware(uploadId) && !alertSettings.isEmpty()) {
                 sendMailIfConditionsMatch(alertSettings, uploadId, "vt");
             } else {
-                log.info("알림 설정이 없음 -> uploadId: {}", uploadId);
+                log.info("No AlertSettings found for uploadId: {}. Skipping email sending.", uploadId);
             }
         } catch (RuntimeException e){
-            log.error("Exception occurred in uploadEvent: " + e.getMessage(), e);
+            log.error("Exception in vtEvent: " + e.getMessage(), e);
         }
     }
 
@@ -147,11 +146,11 @@ public class EventListener {
                 // Suspicious 상태와 일치하는 알림 설정에 따라 메일 전송
                 sendMailIfConditionsMatch(alertSettings, uploadId, "suspicious");
             } else {
-                log.info("알림 설정이 없음 -> uploadId: {}", uploadId);
+                log.info("No AlertSettings found for uploadId: {}. Skipping email sending.", uploadId);
             }
         } catch (RuntimeException e){
-        log.error("Exception occurred in uploadEvent: " + e.getMessage(), e);
-    }
+            log.error("Exception in suspiciousEvent: " + e.getMessage(), e);
+        }
     }
 
     @RabbitListener(queues = "#{@rabbitMQProperties.dlpQueue}")
@@ -170,13 +169,13 @@ public class EventListener {
                     log.info("알림 설정 되어 있음");
                     sendMailIfConditionsMatch(alertSettings, uploadId, "dlp");
                 } else {
-                    log.info("알림 설정이 없음 -> uploadId: {}", uploadId);
+                    log.info("No AlertSettings found for uploadId: {}. Skipping email sending.", uploadId);
                 }
             } else {
                 log.info("Invalid message received.");
             }
         } catch (RuntimeException e){
-            log.error("Exception occurred in uploadEvent: " + e.getMessage(), e);
+            log.error("Exception in dlpEvent: " + e.getMessage(), e);
         }
     }
 
