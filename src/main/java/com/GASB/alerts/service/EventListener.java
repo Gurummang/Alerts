@@ -32,16 +32,17 @@ public class EventListener {
     // storedFile이 이미 있는 경우
     @RabbitListener(queues = "#{@rabbitMQProperties.uploadQueue}")
     public void uploadEvent(long uploadId) {
-        log.info("uploadId: {}", uploadId);
-
-        StoredFile storedFile = getStoredFile(uploadId);
-
-        if (storedFile.getFileStatus().getVtStatus() == 1 ||
-                storedFile.getFileStatus().getDlpStatus() == 1 ||
-                storedFile.getFileStatus().getGscanStatus() == 1) {
-
-            // 조건에 맞는 알림 설정을 확인하고 메일 전송
-            sendMailBasedOnConditions(uploadId);
+        try {
+            log.info("uploadId: {}", uploadId);
+            StoredFile storedFile = getStoredFile(uploadId);
+            if (storedFile.getFileStatus().getVtStatus() == 1 ||
+                    storedFile.getFileStatus().getDlpStatus() == 1 ||
+                    storedFile.getFileStatus().getGscanStatus() == 1) {
+                sendMailBasedOnConditions(uploadId);
+            }
+        } catch (RuntimeException e) {
+            log.error("Exception occurred in uploadEvent: " + e.getMessage(), e);
+            throw e;
         }
     }
 
@@ -117,54 +118,65 @@ public class EventListener {
 
     @RabbitListener(queues = "#{@rabbitMQProperties.vtQueue}")
     public void vtEvent(long uploadId) {
-        log.info("vtEvent uploadId: {}", uploadId);
-        Long orgId = getOrgIdByUploadId(uploadId);
-        List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndVtTrue(orgId);
+        try {
+            log.info("vtEvent uploadId: {}", uploadId);
+            Long orgId = getOrgIdByUploadId(uploadId);
+            List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndVtTrue(orgId);
 
-        if(isMalware(uploadId) && !alertSettings.isEmpty()) {
-            sendMailIfConditionsMatch(alertSettings, uploadId, "vt");
-        } else{
-            log.info("알림 설정이 없음 -> uploadId: {}", uploadId);
+            if (isMalware(uploadId) && !alertSettings.isEmpty()) {
+                sendMailIfConditionsMatch(alertSettings, uploadId, "vt");
+            } else {
+                log.info("알림 설정이 없음 -> uploadId: {}", uploadId);
+            }
+        } catch (RuntimeException e){
+            log.error("Exception occurred in uploadEvent: " + e.getMessage(), e);
         }
     }
 
     @RabbitListener(queues = "#{@rabbitMQProperties.suspiciousQueue}")
     public void suspiciousEvent(byte[] message) {
-        // 바이트 배열을 long으로 변환
-        ByteBuffer buffer = ByteBuffer.wrap(message);
-        long uploadId = buffer.getLong();
+        try {// 바이트 배열을 long으로 변환
+            ByteBuffer buffer = ByteBuffer.wrap(message);
+            long uploadId = buffer.getLong();
 
-        log.info("suspiciousEvent uploadId: {}", uploadId);
-        Long orgId = getOrgIdByUploadId(uploadId);
-        List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndSuspiciousTrue(orgId);
+            log.info("suspiciousEvent uploadId: {}", uploadId);
+            Long orgId = getOrgIdByUploadId(uploadId);
+            List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndSuspiciousTrue(orgId);
 
-        if(isSuspicious(uploadId) && !alertSettings.isEmpty()) {
-            // Suspicious 상태와 일치하는 알림 설정에 따라 메일 전송
-            sendMailIfConditionsMatch(alertSettings, uploadId, "suspicious");
-        } else {
-            log.info("알림 설정이 없음 -> uploadId: {}", uploadId);
-        }
+            if (isSuspicious(uploadId) && !alertSettings.isEmpty()) {
+                // Suspicious 상태와 일치하는 알림 설정에 따라 메일 전송
+                sendMailIfConditionsMatch(alertSettings, uploadId, "suspicious");
+            } else {
+                log.info("알림 설정이 없음 -> uploadId: {}", uploadId);
+            }
+        } catch (RuntimeException e){
+        log.error("Exception occurred in uploadEvent: " + e.getMessage(), e);
+    }
     }
 
     @RabbitListener(queues = "#{@rabbitMQProperties.dlpQueue}")
     public void dlpEvent(long[] ids) {
-        if (ids.length == 2) {
-            long policyId = ids[0];
-            long uploadId = ids[1];
-            log.info("정책 아이디, 업로드 아이디: {}, {}", policyId, uploadId);
+        try {
+            if (ids.length == 2) {
+                long policyId = ids[0];
+                long uploadId = ids[1];
+                log.info("정책 아이디, 업로드 아이디: {}, {}", policyId, uploadId);
 
-            Long orgId = getOrgIdByUploadId(uploadId);
-            List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndDlpTrue(orgId);
+                Long orgId = getOrgIdByUploadId(uploadId);
+                List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndDlpTrue(orgId);
 
-            // DLP 상태와 일치하는 알림 설정에 따라 메일 전송
-            if(!alertSettings.isEmpty()) {
-                log.info("알림 설정 되어 있음");
-                sendMailIfConditionsMatch(alertSettings, uploadId, "dlp");
-            } else{
-                log.info("알림 설정이 없음 -> uploadId: {}", uploadId);
+                // DLP 상태와 일치하는 알림 설정에 따라 메일 전송
+                if (!alertSettings.isEmpty()) {
+                    log.info("알림 설정 되어 있음");
+                    sendMailIfConditionsMatch(alertSettings, uploadId, "dlp");
+                } else {
+                    log.info("알림 설정이 없음 -> uploadId: {}", uploadId);
+                }
+            } else {
+                log.info("Invalid message received.");
             }
-        } else {
-            log.info("Invalid message received.");
+        } catch (RuntimeException e){
+            log.error("Exception occurred in uploadEvent: " + e.getMessage(), e);
         }
     }
 
