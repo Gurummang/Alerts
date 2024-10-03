@@ -14,14 +14,13 @@ import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeMultipart;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Properties;
 
@@ -59,9 +58,20 @@ public class MailUtil {
         String recipients = String.join(",", receivers);
         message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipients));
 
-        // HTML 템플릿 파일 읽기
-        ClassPathResource resource = new ClassPathResource("templates/index.html");
-        String htmlTemplate = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
+        // RestTemplate을 사용하여 HTML 템플릿 파일 읽기
+        String htmlTemplateUrl = "https://staticfile-template.s3.ap-northeast-2.amazonaws.com/index.html";
+        RestTemplate restTemplate = new RestTemplate();
+
+        // URL에서 HTML 템플릿 가져오기
+        byte[] htmlBytes = restTemplate.getForObject(htmlTemplateUrl, byte[].class);
+
+        // UTF-8로 인코딩된 문자열로 변환
+        String htmlTemplate = new String(htmlBytes, StandardCharsets.UTF_8);
+
+        // HTML 파일을 가져오지 못했을 경우 예외 처리
+        if (htmlTemplate == null || htmlTemplate.isEmpty()) {
+            throw new IOException("Unable to fetch HTML template from the URL: " + htmlTemplateUrl);
+        }
 
         // 변수 설정
         String saasName = fileUpload.getOrgSaaS().getSaas().getSaasName();
@@ -81,7 +91,7 @@ public class MailUtil {
                 .replace("[[uploadTime]]", uploadTimestamp);
 
         // 메일 본문 생성
-        MimeMultipart msg = new MimeMultipart("mixed");
+        MimeMultipart msg = new MimeMultipart("alternative");
 
         // 텍스트 파트 생성
         MimeBodyPart textPart = new MimeBodyPart();
@@ -92,6 +102,12 @@ public class MailUtil {
         MimeBodyPart htmlPart = new MimeBodyPart();
         htmlPart.setContent(htmlTemplate, "text/html; charset=UTF-8");
         msg.addBodyPart(htmlPart);
+
+        message.setHeader("X-Priority", "1"); // 높은 우선순위 설정
+        message.setHeader("Importance", "High"); // 이메일의 중요도를 높게 설정
+        message.setHeader("X-MSMail-Priority", "High"); // Outlook 등 특정 클라이언트에 사용
+        message.setHeader("X-Mailer", "Microsoft Outlook 16.0"); // 메일러 설정 (옵션)
+        message.setHeader("X-MimeOLE", "Produced By Microsoft MimeOLE V6.00.2800.1165"); // MIME 프로토콜 설정 (옵션)
 
         // 메일 콘텐츠 설정
         message.setContent(msg);

@@ -56,6 +56,11 @@ public class EventListener {
 
         // org의 모든 알림 설정
         List<AlertSettings> allAlertSettings = alertSettingsRepo.findAllByOrgId(orgId);
+        if (allAlertSettings.isEmpty()) {
+            log.info("No AlertSettings found for orgId: {}. Skipping email sending for uploadId: {}", orgId, uploadId);
+            return;
+        }
+
         Set<Long> sentAlertSettings = new HashSet<>();
 
         // 조건별로 메일 전송
@@ -84,6 +89,8 @@ public class EventListener {
                 awsMailService.sendMail(filteredSettings, uploadId);
                 log.info("메일 보낼거임! -> uploadId : {}", uploadId);
                 filteredSettings.forEach(setting -> sentAlertSettings.add(setting.getId()));
+            } else {
+                log.info("No matching alert settings found for alert type: {} and uploadId: {}", type, uploadId);
             }
 
         }
@@ -114,9 +121,10 @@ public class EventListener {
         Long orgId = getOrgIdByUploadId(uploadId);
         List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndVtTrue(orgId);
 
-        if(isMalware(uploadId)) {
-            // VT 상태와 일치하는 알림 설정에 따라 메일 전송
+        if(isMalware(uploadId) && !alertSettings.isEmpty()) {
             sendMailIfConditionsMatch(alertSettings, uploadId, "vt");
+        } else{
+            log.info("알림 설정이 없음 -> uploadId: {}", uploadId);
         }
     }
 
@@ -130,9 +138,11 @@ public class EventListener {
         Long orgId = getOrgIdByUploadId(uploadId);
         List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndSuspiciousTrue(orgId);
 
-        if(isSuspicious(uploadId)) {
+        if(isSuspicious(uploadId) && !alertSettings.isEmpty()) {
             // Suspicious 상태와 일치하는 알림 설정에 따라 메일 전송
             sendMailIfConditionsMatch(alertSettings, uploadId, "suspicious");
+        } else {
+            log.info("알림 설정이 없음 -> uploadId: {}", uploadId);
         }
     }
 
@@ -147,7 +157,12 @@ public class EventListener {
             List<AlertSettings> alertSettings = alertSettingsRepo.findAllByOrgIdAndDlpTrue(orgId);
 
             // DLP 상태와 일치하는 알림 설정에 따라 메일 전송
-            sendMailIfConditionsMatch(alertSettings, uploadId, "dlp");
+            if(!alertSettings.isEmpty()) {
+                log.info("알림 설정 되어 있음");
+                sendMailIfConditionsMatch(alertSettings, uploadId, "dlp");
+            } else{
+                log.info("알림 설정이 없음 -> uploadId: {}", uploadId);
+            }
         } else {
             log.info("Invalid message received.");
         }
@@ -155,17 +170,19 @@ public class EventListener {
 
 
     private void sendMailIfConditionsMatch(List<AlertSettings> alertSettings, long uploadId, String alertType) {
+        if (alertSettings.isEmpty()) {
+            log.info("No AlertSettings found for alert type: {} and uploadId: {}. Skipping email sending.", alertType, uploadId);
+            return;
+        }
+
         List<AlertSettings> matchedSettings = alertSettings.stream()
                 .filter(setting -> {
                     switch (alertType) {
                         case "vt":
-                            log.info("vt");
-                            return setting.isVt();  // VT 상태와 일치하는지 확인
+                            return setting.isVt();
                         case "suspicious":
-                            log.info("suspicious");
-                            return setting.isSuspicious();  // Suspicious 상태와 일치하는지 확인
+                            return setting.isSuspicious();
                         case "dlp":
-                            log.info("dlp");
                             return setting.isDlp();
                         default:
                             return false;
@@ -178,7 +195,7 @@ public class EventListener {
             awsMailService.sendMail(matchedSettings, uploadId);
             log.info("메일 보낼거임! -> uploadId : {}", uploadId);
         } else {
-            log.info("No matching alert settings found for alert type: {} and upload ID: {}", alertType, uploadId);
+            log.info("No matching alert settings found for alert type: {} and uploadId: {}", alertType, uploadId);
         }
     }
 
@@ -204,7 +221,11 @@ public class EventListener {
         if(fileUpload.isPresent()){
             FileUpload upload = fileUpload.get();
             StoredFile storedFile = upload.getStoredFile();
-            return upload.getTypeScan().getCorrect().equals(false) || storedFile.getScanTable().isDetected();
+            if (storedFile.getScanTable() != null && upload.getTypeScan() != null) {
+                return upload.getTypeScan().getCorrect().equals(false) || storedFile.getScanTable().isDetected();
+            } else {
+                return false;
+            }
         }
         return false;
     }
